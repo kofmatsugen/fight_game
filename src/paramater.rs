@@ -3,7 +3,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AnimationParam {
-    move_direction: [f32; 2],
+    pub move_direction: [f32; 2],
+}
+
+impl AnimationParam {
+    pub fn move_direction(&self) -> [f32; 2] {
+        self.move_direction
+    }
 }
 
 impl FromUser for AnimationParam {
