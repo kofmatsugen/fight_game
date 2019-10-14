@@ -10,3 +10,5 @@ edition = "2018"
 amethyst-sprite-studio={path = "../amethyst-sprite-studio/"}
 amethyst = {git = "https://github.com/amethyst/amethyst.git", features = ["vulkan"] }
 serde="*"
+ncollide2d="*"
+log="*"
