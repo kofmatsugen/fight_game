@@ -14,7 +14,10 @@ use amethyst_sprite_studio::{
     traits::AnimationKey,
     SpriteAnimation,
 };
-use ncollide2d::{query, shape::Cuboid};
+use ncollide2d::{
+    query,
+    shape::{Compound, Cuboid, ShapeHandle},
+};
 use std::{collections::BTreeMap, marker::PhantomData};
 
 pub struct CollideSystem<K> {
@@ -22,7 +25,7 @@ pub struct CollideSystem<K> {
 }
 
 struct CollisionData {
-    cube: Cuboid<f32>,
+    collisions: Compound<f32>,
     transform: Isometry2<f32>,
 }
 
@@ -58,15 +61,10 @@ where
                     make_collides(key2, time2, transform2, &store, &storage),
                 ) {
                     (Some(cuboids1), Some(cuboids2)) => {
-                        for c1 in &cuboids1 {
-                            for c2 in &cuboids2 {
-                                contact(c1, c2).map(|diff| {
+                        contact(cuboids1, cuboids2).map(|diff| {
                                     object_diffs.insert(e1, diff);
-                                    log::info!("{:?}", diff);
                                 });
                             }
-                        }
-                    }
                     _ => {}
                 }
             }
@@ -86,15 +84,17 @@ fn make_collides<K>(
     transform: &Transform,
     store: &AnimationStore<K, AnimationParam>,
     storage: &AssetStorage<SpriteAnimation<AnimationParam>>,
-) -> Option<Vec<CollisionData>>
+) -> Option<CollisionData>
 where
     K: AnimationKey,
 {
     // これまで経過したアニメーションフレーム分の処理を行う
     // 直前のアニメーションフレームは前のフレームで処理してるので省く
     let mut global_matrixs = BTreeMap::new();
-    let root_matrix = transform.matrix();
-    AnimationNodes::new(key.key()?, time.current_time(), &store, &storage)?
+    let mut identity = Transform::default();
+    identity.set_scale(*transform.scale());
+    let root_scale_matrix = identity.matrix();
+    let cubes = AnimationNodes::new(key.key()?, time.current_time(), &store, &storage)?
         .map(|(id, part_info, key_frame, _)| {
             let part_id = part_info.part_id();
             let parent_id = part_info.parent_id();
@@ -102,7 +102,7 @@ where
             // 親の位置からグローバル座標を算出．親がいなければルートが親
             let parent_matrix = parent_id
                 .map(|parent_id| global_matrixs[&(id, parent_id)])
-                .unwrap_or(root_matrix);
+                .unwrap_or(root_scale_matrix);
 
             // グローバル座標計算
             let global_matrix = parent_matrix * key_frame.transform().matrix();
@@ -119,23 +119,33 @@ where
                 None
             }
         })
-        .fold(Vec::new(), |mut collisions, (_, _, matrix)| {
+        .map(|(_, _, matrix)| {
             let collision: &[[f32; 4]; 4] = matrix.as_ref();
             let width = collision[0][0] / 2.;
             let height = collision[1][1] / 2.;
             let transform =
                 Isometry2::new(Vector2::new(collision[3][0], collision[3][1]), math::zero());
-            let cube = Cuboid::new(Vector2::new(width.abs(), height.abs()));
-
-            collisions.push(CollisionData { transform, cube });
-
-            collisions
+            (
+                transform,
+                ShapeHandle::new(Cuboid::new(Vector2::new(width.abs(), height.abs()))),
+            )
         })
+        .collect::<Vec<_>>();
+    CollisionData {
+        collisions: Compound::new(cubes),
+        transform: transform_to_isometry(transform),
+    }
         .into()
 }
 
-fn contact(c1: &CollisionData, c2: &CollisionData) -> Option<(f32, f32)> {
-    let contact = query::contact(&c1.transform, &c1.cube, &c2.transform, &c2.cube, 2.0);
+fn contact(c1: CollisionData, c2: CollisionData) -> Option<(f32, f32)> {
+    let contact = query::contact(
+        &c1.transform,
+        &c1.collisions,
+        &c2.transform,
+        &c2.collisions,
+        2.0,
+    );
     match contact {
         Some(contact) => {
             let query::Contact { normal, depth, .. } = contact;
@@ -145,4 +155,10 @@ fn contact(c1: &CollisionData, c2: &CollisionData) -> Option<(f32, f32)> {
         }
         None => None,
     }
+}
+
+fn transform_to_isometry(transform: &Transform) -> Isometry2<f32> {
+    let matrix = transform.matrix();
+    let collision: &[[f32; 4]; 4] = matrix.as_ref();
+    Isometry2::new(Vector2::new(collision[3][0], collision[3][1]), math::zero())
 }
