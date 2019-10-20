@@ -2,8 +2,22 @@ use amethyst_sprite_studio::traits::{CollisionColor, FromUser};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
+pub enum CollisionType {
+    Extrusion,
+    Blow,
+    Projectile,
+    Throw,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserParamater {
+    pub collision_type: Option<CollisionType>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AnimationParam {
     pub move_direction: [f32; 2],
+    pub user_param: Option<UserParamater>,
 }
 
 impl AnimationParam {
@@ -17,11 +31,26 @@ impl FromUser for AnimationParam {
         _integer: Option<i32>,
         point: Option<(f32, f32)>,
         _rect: Option<(f32, f32, f32, f32)>,
-        _text: Option<String>,
+        text: Option<String>,
     ) -> Option<Self> {
-        point.map(|(x, y)| AnimationParam {
-            move_direction: [x, y],
-        })
+        let move_direction = point.map(|(x, y)| [x, y]).unwrap_or([0., 0.]);
+        let user_param =
+            text.and_then(
+                |string| match serde_json::de::from_str::<UserParamater>(&string) {
+                    Ok(user_param) => user_param.into(),
+                    Err(err) => {
+                        log::error!("{:?}", err);
+                        log::error!("raw: {:?}", string);
+                        None
+                    }
+                },
+            );
+
+        AnimationParam {
+            move_direction,
+            user_param,
+        }
+        .into()
     }
 }
 

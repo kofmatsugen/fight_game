@@ -1,4 +1,7 @@
-use crate::paramater::AnimationParam;
+use crate::{
+    components::ExtrudeCollision,
+    paramater::{AnimationParam, CollisionType, UserParamater},
+};
 use amethyst::{
     assets::AssetStorage,
     core::{
@@ -14,19 +17,11 @@ use amethyst_sprite_studio::{
     traits::AnimationKey,
     SpriteAnimation,
 };
-use ncollide2d::{
-    query,
-    shape::{Compound, Cuboid, ShapeHandle},
-};
+use ncollide2d::shape::{Compound, Cuboid, ShapeHandle};
 use std::{collections::BTreeMap, marker::PhantomData};
 
 pub struct CollideSystem<K> {
     _key: PhantomData<K>,
-}
-
-struct CollisionData {
-    collisions: Compound<f32>,
-    transform: Isometry2<f32>,
 }
 
 impl<K> CollideSystem<K> {
@@ -45,35 +40,17 @@ where
         Read<'s, AssetStorage<SpriteAnimation<AnimationParam>>>,
         ReadStorage<'s, PlayAnimationKey<K>>,
         ReadStorage<'s, AnimationTime>,
-        WriteStorage<'s, Transform>,
+        ReadStorage<'s, Transform>,
+        WriteStorage<'s, ExtrudeCollision>,
     );
 
-    fn run(&mut self, (entities, store, storage, keys, times, mut transforms): Self::SystemData) {
-        let mut object_diffs = BTreeMap::new();
-
-        for (e1, key1, time1, transform1) in (&*entities, &keys, &times, &transforms).join() {
-            for (e2, key2, time2, transform2) in (&*entities, &keys, &times, &transforms).join() {
-                if e1 == e2 {
-                    continue;
-                }
-                match (
-                    make_collides(key1, time1, transform1, &store, &storage),
-                    make_collides(key2, time2, transform2, &store, &storage),
-                ) {
-                    (Some(cuboids1), Some(cuboids2)) => {
-                        contact(cuboids1, cuboids2).map(|diff| {
-                                    object_diffs.insert(e1, diff);
-                                });
-                            }
-                    _ => {}
-                }
-            }
-        }
-
-        for (e, diff) in object_diffs {
-            if let Some(transform) = transforms.get_mut(e) {
-                transform.append_translation_xyz(diff.0, diff.1, 0.0);
-            }
+    fn run(
+        &mut self,
+        (entities, store, storage, keys, times, transform, mut extrusion): Self::SystemData,
+    ) {
+        for (e, key, time, transform) in (&*entities, &keys, &times, &transform).join() {
+            make_collides(key, time, transform, &store, &storage)
+                .map(|collision| extrusion.entry(e).map(|entry| entry.or_insert(collision)));
         }
     }
 }
@@ -84,7 +61,7 @@ fn make_collides<K>(
     transform: &Transform,
     store: &AnimationStore<K, AnimationParam>,
     storage: &AssetStorage<SpriteAnimation<AnimationParam>>,
-) -> Option<CollisionData>
+) -> Option<ExtrudeCollision>
 where
     K: AnimationKey,
 {
@@ -114,12 +91,24 @@ where
         })
         .filter_map(|(part_info, key_frame, matrix)| {
             if key_frame.visible() {
-                part_info.bounds().map(|bounds| (bounds, key_frame, matrix))
+                match (part_info.bounds(), key_frame.user()) {
+                    (
+                        Some(_),
+                        Some(AnimationParam {
+                            user_param:
+                                Some(UserParamater {
+                                    collision_type: Some(CollisionType::Extrusion),
+                                }),
+                            ..
+                        }),
+                    ) => Some(matrix),
+                    _ => None,
+                }
             } else {
                 None
             }
         })
-        .map(|(_, _, matrix)| {
+        .map(|matrix| {
             let collision: &[[f32; 4]; 4] = matrix.as_ref();
             let width = collision[0][0] / 2.;
             let height = collision[1][1] / 2.;
@@ -131,34 +120,10 @@ where
             )
         })
         .collect::<Vec<_>>();
-    CollisionData {
-        collisions: Compound::new(cubes),
-        transform: transform_to_isometry(transform),
-    }
-        .into()
-}
 
-fn contact(c1: CollisionData, c2: CollisionData) -> Option<(f32, f32)> {
-    let contact = query::contact(
-        &c1.transform,
-        &c1.collisions,
-        &c2.transform,
-        &c2.collisions,
-        2.0,
-    );
-    match contact {
-        Some(contact) => {
-            let query::Contact { normal, depth, .. } = contact;
-            let diff_x = normal.into_inner()[0] * -depth / 2.;
-            let diff_y = normal.into_inner()[1] * -depth / 2.;
-            Some((diff_x, diff_y))
-        }
-        None => None,
+    if cubes.len() == 0 {
+        ExtrudeCollision::none().into()
+    } else {
+        ExtrudeCollision::new(Compound::new(cubes)).into()
     }
-}
-
-fn transform_to_isometry(transform: &Transform) -> Isometry2<f32> {
-    let matrix = transform.matrix();
-    let collision: &[[f32; 4]; 4] = matrix.as_ref();
-    Isometry2::new(Vector2::new(collision[3][0], collision[3][1]), math::zero())
 }
