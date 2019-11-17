@@ -8,8 +8,10 @@ edition = "2018"
 
 [dependencies]
 amethyst-sprite-studio={path = "../amethyst-sprite-studio/"}
+amethyst-collision={path="../amethyst-collision/"}
 amethyst = {git = "https://github.com/amethyst/amethyst.git", features = ["vulkan"] }
 serde="*"
 serde_json="*"
 ncollide2d="*"
+nalgebra="*"
 log="*"
