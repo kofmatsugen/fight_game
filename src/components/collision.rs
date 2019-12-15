@@ -3,9 +3,11 @@ use amethyst::{
     core::Transform,
     ecs::{Component, FlaggedStorage},
 };
-use amethyst_collision::traits::Collider;
-use ncollide2d::{pipeline::CollisionObjectSlabHandle, shape::ShapeHandle};
+use amethyst_collision::{paramater::CollisionWorld, traits::Collider, traits::ToIsometry};
+use ncollide2d::{math::Isometry, pipeline::CollisionObjectSlabHandle, shape::ShapeHandle};
+use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
+use std::hash::Hasher;
 
 pub(crate) struct CollisionHandler<C, T> {
     pub(crate) collision: C,
@@ -15,25 +17,25 @@ pub(crate) struct CollisionHandler<C, T> {
 }
 
 // 押し出し判定
-pub struct Collisions<ID, C, T>
-where
-    ID: std::hash::Hash + PartialOrd + Ord,
-{
-    collision_data: BTreeMap<ID, CollisionHandler<C, T>>,
+pub struct Collisions<C, T> {
+    collision_data: BTreeMap<u64, CollisionHandler<C, T>>,
 }
 
-impl<ID, C, T> Collisions<ID, C, T>
-where
-    ID: std::hash::Hash + PartialOrd + Ord,
-    C: CollisionData,
-{
+impl<C, T> Collisions<C, T> {
     pub fn new() -> Self {
         Collisions {
             collision_data: BTreeMap::new(),
         }
     }
 
-    pub fn update_collision(&mut self, id: ID, data: T, collision: C, position: Transform) {
+    pub fn update_collision<H>(&mut self, id: H, data: T, collision: C, position: Transform)
+    where
+        H: std::hash::Hash,
+    {
+        let mut hasher = DefaultHasher::new();
+        id.hash(&mut hasher);
+        let id = hasher.finish();
+
         match self.collision_data.get_mut(&id) {
             Some(handler) => {
                 handler.collision = collision;
@@ -54,18 +56,15 @@ where
     }
 }
 
-impl<ID, C, T> Collider<f32, T> for Collisions<ID, C, T>
+impl<C, T> Collider<f32, T> for Collisions<C, T>
 where
-    ID: 'static + Sync + Send + std::hash::Hash + PartialOrd + Ord,
     C: 'static + Sync + Send + CollisionData,
-    T: 'static + Send + Sync,
+    T: 'static + Send + Sync + Clone + Copy,
 {
-    type Position = Transform;
-
-    fn handles(
+    fn registered_handles(
         &self,
     ) -> Vec<(
-        &Self::Position,
+        Isometry<f32>,
         ShapeHandle<f32>,
         &T,
         CollisionObjectSlabHandle,
@@ -82,16 +81,47 @@ where
                         handle,
                     },
                 )| {
-                    handle.map(|handle| (position, collision.make_shape(), data, handle))
+                    handle.map(|handle| {
+                        (position.to_isometry(), collision.make_shape(), data, handle)
+                    })
                 },
             )
             .collect()
     }
+
+    // まだ登録されてないものを登録する
+    fn register_handles(&mut self, world: &mut CollisionWorld<f32, T>) {
+        self.collision_data.iter_mut().for_each(
+            |(
+                _,
+                CollisionHandler {
+                    collision,
+                    data,
+                    position,
+                    handle,
+                },
+            )| {
+                if handle.is_some() {
+                    // すでに登録されているものは無視
+                    return;
+                }
+
+                let registered = world.add_collision(
+                    position.to_isometry(),
+                    collision.make_shape(),
+                    *data,
+                    None,
+                );
+                log::info!("register!: {:?}", registered);
+
+                *handle = Some(registered);
+            },
+        )
+    }
 }
 
-impl<ID, C, T> Component for Collisions<ID, C, T>
+impl<C, T> Component for Collisions<C, T>
 where
-    ID: 'static + Send + Sync + std::hash::Hash + PartialOrd + Ord,
     C: 'static + Send + Sync,
     T: 'static + Send + Sync,
 {
