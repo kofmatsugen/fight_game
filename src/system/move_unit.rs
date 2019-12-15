@@ -11,6 +11,7 @@ use amethyst_sprite_studio::{
     iter::AnimationRange,
     resource::AnimationStore,
     traits::AnimationKey,
+    types::Node,
     SpriteAnimation,
 };
 use std::marker::PhantomData;
@@ -66,7 +67,7 @@ where
     .skip(1)
     {
         nodes
-            .filter_map(|(_, _, key_frame, _)| key_frame.user())
+            .filter_map(|Node { key_frame, .. }| key_frame.user())
             .for_each(|user| {
                 let scale_x = transform.scale()[0];
                 let scale_y = transform.scale()[1];

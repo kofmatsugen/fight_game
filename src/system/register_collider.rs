@@ -17,7 +17,7 @@ use amethyst_sprite_studio::{
     iter::AnimationNodes,
     resource::AnimationStore,
     traits::AnimationKey,
-    types::KeyFrame,
+    types::{KeyFrame, Node},
     SpriteAnimation,
 };
 use std::{collections::BTreeMap, marker::PhantomData};
@@ -84,8 +84,13 @@ where
     let registered_collision = collisions.entry(e)?.or_insert(Collisions::new());
     let mut global_transforms = BTreeMap::new();
     if let Some(anim_key) = key.key() {
-        for (node_id, part_info, key_frame, _) in
-            AnimationNodes::new(anim_key, time.current_time(), &store, &storage).unwrap()
+        for Node {
+            pack_id,
+            anim_id,
+            part_info,
+            key_frame,
+            ..
+        } in AnimationNodes::new(anim_key, time.current_time(), &store, &storage).unwrap()
         {
             let part_id = part_info.part_id();
             let parent_id = part_info.parent_id();
@@ -93,7 +98,7 @@ where
             // 親の位置を取得してからパーツのローカル座標を反映
             // 後で判定登録のときに座標計算するので基本は 0 座標
             let mut part_transform = parent_id
-                .and_then(|parent_id| global_transforms.get(&(node_id, parent_id)))
+                .and_then(|parent_id| global_transforms.get(&(pack_id, anim_id, parent_id)))
                 .unwrap_or(root_transform)
                 .clone();
             part_transform.concat(key_frame.transform());
@@ -112,12 +117,12 @@ where
 
                 log::info!(
                     "register {:?}: {:?}, {:?}",
-                    (node_id, part_id),
+                    (pack_id, anim_id, part_id),
                     c,
                     part_transform.translation()
                 );
                 registered_collision.update_collision(
-                    (node_id, part_id),
+                    (pack_id, anim_id, part_id),
                     data,
                     c,
                     part_transform.clone(),
@@ -125,7 +130,7 @@ where
             }
 
             // 今のIDで位置を登録しておき，次の子パーツの座標計算に利用する
-            global_transforms.insert((node_id, part_id), part_transform);
+            global_transforms.insert((pack_id, anim_id, part_id), part_transform);
         }
     }
     Ok(())

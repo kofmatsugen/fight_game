@@ -30,20 +30,21 @@ impl<C, T> Collisions<C, T> {
 
     pub fn update_collision<H>(&mut self, id: H, data: T, collision: C, position: Transform)
     where
-        H: std::hash::Hash,
+        H: std::hash::Hash + std::fmt::Debug,
     {
         let mut hasher = DefaultHasher::new();
         id.hash(&mut hasher);
-        let id = hasher.finish();
+        let hash_id = hasher.finish();
 
-        match self.collision_data.get_mut(&id) {
+        match self.collision_data.get_mut(&hash_id) {
             Some(handler) => {
                 handler.collision = collision;
                 handler.position = position;
             }
             None => {
+                log::info!("insert id: {:?}", id);
                 self.collision_data.insert(
-                    id,
+                    hash_id,
                     CollisionHandler {
                         collision,
                         data,
@@ -93,7 +94,7 @@ where
     fn register_handles(&mut self, world: &mut CollisionWorld<f32, T>) {
         self.collision_data.iter_mut().for_each(
             |(
-                _,
+                id,
                 CollisionHandler {
                     collision,
                     data,
@@ -112,7 +113,7 @@ where
                     *data,
                     None,
                 );
-                log::info!("register!: {:?}", registered);
+                log::info!("register: {} -> {:?}", id, registered);
 
                 *handle = Some(registered);
             },
