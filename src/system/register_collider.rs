@@ -86,7 +86,6 @@ where
     if let Some(anim_key) = key.key() {
         for Node {
             pack_id,
-            anim_id,
             part_info,
             key_frame,
             ..
@@ -98,7 +97,7 @@ where
             // 親の位置を取得してからパーツのローカル座標を反映
             // 後で判定登録のときに座標計算するので基本は 0 座標
             let mut part_transform = parent_id
-                .and_then(|parent_id| global_transforms.get(&(pack_id, anim_id, parent_id)))
+                .and_then(|parent_id| global_transforms.get(&(pack_id, parent_id)))
                 .unwrap_or(root_transform)
                 .clone();
             part_transform.concat(key_frame.transform());
@@ -117,20 +116,24 @@ where
 
                 log::info!(
                     "register {:?}: {:?}, {:?}",
-                    (pack_id, anim_id, part_id),
+                    (pack_id, part_id),
                     c,
                     part_transform.translation()
                 );
                 registered_collision.update_collision(
-                    (pack_id, anim_id, part_id),
+                    (pack_id, part_id),
                     data,
                     c,
                     part_transform.clone(),
                 );
+            } else {
+                // 判定データがないので削除
+                log::info!("erase {:?}", (pack_id, part_id),);
+                registered_collision.remove_collision((pack_id, part_id));
             }
 
             // 今のIDで位置を登録しておき，次の子パーツの座標計算に利用する
-            global_transforms.insert((pack_id, anim_id, part_id), part_transform);
+            global_transforms.insert((pack_id, part_id), part_transform);
         }
     }
     Ok(())

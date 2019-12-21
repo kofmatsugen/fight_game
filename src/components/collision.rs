@@ -1,13 +1,14 @@
 use crate::traits::CollisionData;
 use amethyst::{
     core::Transform,
-    ecs::{Component, FlaggedStorage},
+    ecs::{Component, Entity, FlaggedStorage},
 };
 use amethyst_collision::{paramater::CollisionWorld, traits::Collider, traits::ToIsometry};
 use ncollide2d::{math::Isometry, pipeline::CollisionObjectSlabHandle, shape::ShapeHandle};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::hash::Hasher;
+use std::vec::Drain;
 
 pub(crate) struct CollisionHandler<C, T> {
     pub(crate) collision: C,
@@ -19,12 +20,33 @@ pub(crate) struct CollisionHandler<C, T> {
 // 押し出し判定
 pub struct Collisions<C, T> {
     collision_data: BTreeMap<u64, CollisionHandler<C, T>>,
+    removed_collisions: Vec<CollisionObjectSlabHandle>,
 }
 
 impl<C, T> Collisions<C, T> {
     pub fn new() -> Self {
         Collisions {
             collision_data: BTreeMap::new(),
+            removed_collisions: vec![],
+        }
+    }
+
+    pub fn remove_collision<H>(&mut self, id: H)
+    where
+        H: std::hash::Hash + std::fmt::Debug,
+    {
+        let mut hasher = DefaultHasher::new();
+        id.hash(&mut hasher);
+        let hash_id = hasher.finish();
+
+        match self.collision_data.remove(&hash_id) {
+            Some(CollisionHandler {
+                handle: Some(handle),
+                ..
+            }) => {
+                self.removed_collisions.push(handle);
+            }
+            _ => {}
         }
     }
 
@@ -91,7 +113,7 @@ where
     }
 
     // まだ登録されてないものを登録する
-    fn register_handles(&mut self, world: &mut CollisionWorld<f32, T>) {
+    fn register_handles(&mut self, entity: Entity, world: &mut CollisionWorld<f32, T>) {
         self.collision_data.iter_mut().for_each(
             |(
                 id,
@@ -108,6 +130,7 @@ where
                 }
 
                 let registered = world.add_collision(
+                    entity,
                     position.to_isometry(),
                     collision.make_shape(),
                     *data,
@@ -118,6 +141,10 @@ where
                 *handle = Some(registered);
             },
         )
+    }
+
+    fn take_removed_handles(&mut self) -> Drain<CollisionObjectSlabHandle> {
+        self.removed_collisions.drain(..)
     }
 }
 
