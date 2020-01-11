@@ -1,6 +1,6 @@
 use crate::{
     components::Collisions,
-    paramater::{AnimationParam, KeyParamater},
+    paramater::AnimationParam,
     traits::{CollisionData, CollisionFromData, ParamaterFromData},
 };
 use amethyst::{
@@ -14,41 +14,55 @@ use amethyst::{
 };
 use amethyst_sprite_studio::{
     components::{AnimationTime, PlayAnimationKey},
-    iter::AnimationNodes,
-    resource::AnimationStore,
-    traits::AnimationKey,
-    types::{KeyFrame, Node},
-    SpriteAnimation,
+    resource::{data::AnimationData, AnimationStore},
+    traits::{AnimationKey, FileId},
 };
-use std::{collections::BTreeMap, marker::PhantomData};
+use std::{
+    collections::BTreeMap,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+};
 
-pub struct RegisterColliderSystem<K, C, T> {
-    _key: PhantomData<K>,
+#[derive(Debug)]
+enum RegisterError {
+    NotFoundPack,
+    NotFoundAnimation,
+    EntryError(WrongGeneration),
+}
+
+pub struct RegisterColliderSystem<ID, P, A, C, T> {
+    _file_id: PhantomData<ID>,
+    _pack_id: PhantomData<P>,
+    _animation_id: PhantomData<A>,
     _paramater: PhantomData<C>,
     _collision: PhantomData<T>,
 }
 
-impl<K, C, T> RegisterColliderSystem<K, C, T> {
+impl<ID, P, A, C, T> RegisterColliderSystem<ID, P, A, C, T> {
     pub fn new() -> Self {
         RegisterColliderSystem {
-            _key: PhantomData,
+            _file_id: PhantomData,
+            _pack_id: PhantomData,
+            _animation_id: PhantomData,
             _paramater: PhantomData,
             _collision: PhantomData,
         }
     }
 }
 
-impl<'s, K, C, T> System<'s> for RegisterColliderSystem<K, C, T>
+impl<'s, ID, P, A, C, T> System<'s> for RegisterColliderSystem<ID, P, A, C, T>
 where
-    K: AnimationKey,
+    ID: FileId,
+    P: AnimationKey,
+    A: AnimationKey,
     C: 'static + Send + Sync + CollisionData + CollisionFromData<Transform> + std::fmt::Debug,
-    T: 'static + Send + Sync + ParamaterFromData<KeyFrame<AnimationParam>>,
+    T: 'static + Send + Sync + ParamaterFromData<AnimationParam>,
 {
     type SystemData = (
         Entities<'s>,
-        Read<'s, AnimationStore<K, AnimationParam>>,
-        Read<'s, AssetStorage<SpriteAnimation<AnimationParam>>>,
-        ReadStorage<'s, PlayAnimationKey<K>>,
+        Read<'s, AnimationStore<ID, AnimationParam>>,
+        Read<'s, AssetStorage<AnimationData<AnimationParam>>>,
+        ReadStorage<'s, PlayAnimationKey<ID, P, A>>,
         ReadStorage<'s, AnimationTime>,
         ReadStorage<'s, Transform>,
         WriteStorage<'s, Collisions<C, T>>,
@@ -67,74 +81,107 @@ where
     }
 }
 
-fn register_collision<C, T, K>(
+fn register_collision<C, T, ID, P, A>(
     e: Entity,
-    key: &PlayAnimationKey<K>,
+    key: &PlayAnimationKey<ID, P, A>,
     time: &AnimationTime,
     root_transform: &Transform,
     collisions: &mut WriteStorage<Collisions<C, T>>,
-    store: &Read<AnimationStore<K, AnimationParam>>,
-    storage: &Read<AssetStorage<SpriteAnimation<AnimationParam>>>,
-) -> Result<(), WrongGeneration>
+    animation_store: &Read<AnimationStore<ID, AnimationParam>>,
+    sprite_animation_storage: &Read<AssetStorage<AnimationData<AnimationParam>>>,
+) -> Result<(), RegisterError>
 where
     C: 'static + Send + Sync + CollisionData + CollisionFromData<Transform> + std::fmt::Debug,
-    T: 'static + Send + Sync + ParamaterFromData<KeyFrame<AnimationParam>>,
-    K: AnimationKey,
+    T: 'static + Send + Sync + ParamaterFromData<AnimationParam>,
+    ID: FileId,
+    P: AnimationKey,
+    A: AnimationKey,
 {
-    let registered_collision = collisions.entry(e)?.or_insert(Collisions::new());
-    let mut global_transforms = BTreeMap::new();
-    if let Some(anim_key) = key.key() {
-        for Node {
-            pack_id,
-            part_info,
-            key_frame,
-            ..
-        } in AnimationNodes::new(anim_key, time.current_time(), &store, &storage).unwrap()
-        {
-            let part_id = part_info.part_id();
-            let parent_id = part_info.parent_id();
-
-            // 親の位置を取得してからパーツのローカル座標を反映
-            // 後で判定登録のときに座標計算するので基本は 0 座標
-            let mut part_transform = parent_id
-                .and_then(|parent_id| global_transforms.get(&(pack_id, parent_id)))
-                .unwrap_or(root_transform)
-                .clone();
-            part_transform.concat(key_frame.transform());
-
-            if let Some(AnimationParam {
-                key_param:
-                    Some(KeyParamater {
-                        collision_type: Some(_),
-                    }),
-                ..
-            }) = key_frame.user()
-            {
-                let c = C::make_collision(&part_transform);
-                // キーフレームから collisions に登録するデータを生成するトレイト
-                let data = T::make_collision_data(key_frame);
-
-                log::info!(
-                    "register {:?}: {:?}, {:?}",
-                    (pack_id, part_id),
-                    c,
-                    part_transform.translation()
-                );
-                registered_collision.update_collision(
-                    (pack_id, part_id),
-                    data,
-                    c,
-                    part_transform.clone(),
-                );
-            } else {
-                // 判定データがないので削除
-                log::info!("erase {:?}", (pack_id, part_id),);
-                registered_collision.remove_collision((pack_id, part_id));
-            }
-
-            // 今のIDで位置を登録しておき，次の子パーツの座標計算に利用する
-            global_transforms.insert((pack_id, part_id), part_transform);
+    let registered_collision = collisions
+        .entry(e)
+        .map_err(|err| RegisterError::EntryError(err))?
+        .or_insert(Collisions::new());
+    let (id, &pack_id, &animation_id) = match (key.file_id(), key.pack_name(), key.animation_name())
+    {
+        (id, Some(pack), Some(anim)) => (id, pack, anim),
+        _ => {
+            return Ok(());
         }
-    }
+    };
+    let pack_name = pack_id.to_string();
+    let animation_name = animation_id.to_string();
+    let pack = animation_store
+        .get_animation_handle(id)
+        .and_then(|handle| sprite_animation_storage.get(handle))
+        .and_then(|data| data.pack(&pack_name))
+        .ok_or(RegisterError::NotFoundPack)?;
+
+    let animation = pack
+        .animation(&animation_name)
+        .ok_or(RegisterError::NotFoundAnimation)?;
+    let frame = animation.sec_to_frame(time.current_time());
+    let mut global_transforms = BTreeMap::new();
+    pack.parts().enumerate().for_each(|(part_id, part)| {
+        let parent_id = part.parent_id();
+        let hash_key = {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            pack_id.hash(&mut hasher);
+            animation_id.hash(&mut hasher);
+            part_id.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        // 親の位置を取得してからパーツのローカル座標を反映
+        // 後で判定登録のときに座標計算するので基本は 0 座標
+        let mut part_transform = parent_id
+            .and_then(|parent_id| {
+                let hash_key = {
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    pack_id.hash(&mut hasher);
+                    animation_id.hash(&mut hasher);
+                    parent_id.hash(&mut hasher);
+                    hasher.finish()
+                };
+                global_transforms.get(&hash_key)
+            })
+            .unwrap_or(root_transform)
+            .clone();
+        part_transform.concat(&animation.local_transform(part_id, frame));
+
+        let user = animation.user(part_id, frame);
+        if let Some(AnimationParam {
+            collision_type: Some(_),
+            ..
+        }) = user
+        {
+            let c = C::make_collision(&part_transform);
+            // キーフレームから collisions に登録するデータを生成するトレイト
+            let data = T::make_collision_data(user.unwrap());
+
+            log::info!(
+                "register {:?}: {:?}, {:?}",
+                (pack_id, part_id),
+                c,
+                part_transform.translation()
+            );
+            registered_collision.update_collision(
+                (pack_id, part_id),
+                data,
+                c,
+                part_transform.clone(),
+            );
+        } else {
+            // 判定データがないので削除
+            match registered_collision.remove_collision((pack_id, part_id)) {
+                Some((id, handle)) => {
+                    log::error!("removed {:?}, {:?}", id, handle);
+                }
+                None => {}
+            }
+        }
+
+        // 今のIDで位置を登録しておき，次の子パーツの座標計算に利用する
+        global_transforms.insert(hash_key, part_transform);
+    });
     Ok(())
 }

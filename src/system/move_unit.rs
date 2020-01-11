@@ -8,32 +8,37 @@ use amethyst::{
 };
 use amethyst_sprite_studio::{
     components::{AnimationTime, PlayAnimationKey},
-    iter::AnimationRange,
-    resource::AnimationStore,
-    traits::AnimationKey,
-    types::Node,
-    SpriteAnimation,
+    resource::{data::AnimationData, AnimationStore},
+    traits::{AnimationKey, FileId},
 };
 use std::marker::PhantomData;
 
-pub struct MoveSystem<K> {
-    _key: PhantomData<K>,
+pub struct MoveSystem<ID, P, A> {
+    _file_id: PhantomData<ID>,
+    _pack_id: PhantomData<P>,
+    _animation_id: PhantomData<A>,
 }
 
-impl<K> MoveSystem<K> {
+impl<ID, P, A> MoveSystem<ID, P, A> {
     pub fn new() -> Self {
-        MoveSystem { _key: PhantomData }
+        MoveSystem {
+            _file_id: PhantomData,
+            _pack_id: PhantomData,
+            _animation_id: PhantomData,
+        }
     }
 }
 
-impl<'s, K> System<'s> for MoveSystem<K>
+impl<'s, ID, P, A> System<'s> for MoveSystem<ID, P, A>
 where
-    K: AnimationKey,
+    ID: FileId,
+    P: AnimationKey,
+    A: AnimationKey,
 {
     type SystemData = (
-        Read<'s, AnimationStore<K, AnimationParam>>,
-        Read<'s, AssetStorage<SpriteAnimation<AnimationParam>>>,
-        ReadStorage<'s, PlayAnimationKey<K>>,
+        Read<'s, AnimationStore<ID, AnimationParam>>,
+        Read<'s, AssetStorage<AnimationData<AnimationParam>>>,
+        ReadStorage<'s, PlayAnimationKey<ID, P, A>>,
         ReadStorage<'s, AnimationTime>,
         WriteStorage<'s, Transform>,
     );
@@ -45,36 +50,42 @@ where
     }
 }
 
-fn move_transform<K>(
-    key: &PlayAnimationKey<K>,
+fn move_transform<ID, P, A>(
+    key: &PlayAnimationKey<ID, P, A>,
     time: &AnimationTime,
-    transform: &mut Transform,
-    store: &AnimationStore<K, AnimationParam>,
-    storage: &AssetStorage<SpriteAnimation<AnimationParam>>,
+    _transform: &mut Transform,
+    animation_store: &AnimationStore<ID, AnimationParam>,
+    sprite_animation_storage: &AssetStorage<AnimationData<AnimationParam>>,
 ) -> Option<()>
 where
-    K: AnimationKey,
+    ID: FileId,
+    P: AnimationKey,
+    A: AnimationKey,
 {
-    // これまで経過したアニメーションフレーム分の処理を行う
-    // 直前のアニメーションフレームは前のフレームで処理してるので省く
-    for nodes in AnimationRange::new(
-        key.key()?,
-        time.prev_time(),
-        time.current_time(),
-        &store,
-        &storage,
-    )?
-    .skip(1)
+    let (id, &pack_id, &animation_id) = match (key.file_id(), key.pack_name(), key.animation_name())
     {
-        nodes
-            .filter_map(|Node { key_frame, .. }| key_frame.user())
-            .for_each(|user| {
-                let scale_x = transform.scale()[0];
-                let scale_y = transform.scale()[1];
-                let [x, y] = user.move_direction();
-                transform.append_translation_xyz(-x * scale_x, y * scale_y, 0.0);
-            });
-    }
+        (id, Some(pack), Some(anim)) => Some((id, pack, anim)),
+        _ => None,
+    }?;
+
+    let pack = animation_store
+        .get_animation_handle(id)
+        .and_then(|handle| sprite_animation_storage.get(handle))
+        .and_then(|data| data.pack(&pack_id.to_string()))?;
+    let animation = pack.animation(&animation_id.to_string())?;
+
+    let current_frame = animation.sec_to_frame_loop(time.current_time());
+    let prev_frame = animation.sec_to_frame_loop(time.prev_time());
+
+    // ルートのIDは0固定なので0指定
+    // todo 固定値のIDはconst化するのもあり
+    pack.parts().nth(0).map(|_| {
+        // これまで経過したアニメーションフレーム分の処理を行う
+        // 直前のアニメーションフレームは前のフレームで処理してるので省く
+        for _f in (prev_frame..current_frame + 1).skip(1) {
+            // todo 移動処理を書く
+        }
+    });
 
     Some(())
 }

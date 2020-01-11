@@ -31,7 +31,7 @@ impl<C, T> Collisions<C, T> {
         }
     }
 
-    pub fn remove_collision<H>(&mut self, id: H)
+    pub fn remove_collision<H>(&mut self, id: H) -> Option<(H, CollisionObjectSlabHandle)>
     where
         H: std::hash::Hash + std::fmt::Debug,
     {
@@ -45,8 +45,9 @@ impl<C, T> Collisions<C, T> {
                 ..
             }) => {
                 self.removed_collisions.push(handle);
+                Some((id, handle))
             }
-            _ => {}
+            _ => None,
         }
     }
 
