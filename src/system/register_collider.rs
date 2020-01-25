@@ -174,7 +174,7 @@ where
             // 判定データがないので削除
             match registered_collision.remove_collision((pack_id, part_id)) {
                 Some((id, handle)) => {
-                    log::error!("removed {:?}, {:?}", id, handle);
+                    log::trace!("remove collision {:?}, {:?}", id, handle);
                 }
                 None => {}
             }
