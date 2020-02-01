@@ -24,9 +24,13 @@ use std::{
 };
 
 #[derive(Debug)]
-enum RegisterError {
-    NotFoundPack,
-    NotFoundAnimation,
+enum RegisterError<P, A>
+where
+    P: AnimationKey,
+    A: AnimationKey,
+{
+    NotFoundPack(P),
+    NotFoundAnimation(A),
     EntryError(WrongGeneration),
 }
 
@@ -60,8 +64,8 @@ where
 {
     type SystemData = (
         Entities<'s>,
-        Read<'s, AnimationStore<ID, AnimationParam>>,
-        Read<'s, AssetStorage<AnimationData<AnimationParam>>>,
+        Read<'s, AnimationStore<ID, AnimationParam, P, A>>,
+        Read<'s, AssetStorage<AnimationData<AnimationParam, P, A>>>,
         ReadStorage<'s, PlayAnimationKey<ID, P, A>>,
         ReadStorage<'s, AnimationTime>,
         ReadStorage<'s, Transform>,
@@ -87,9 +91,9 @@ fn register_collision<C, T, ID, P, A>(
     time: &AnimationTime,
     root_transform: &Transform,
     collisions: &mut WriteStorage<Collisions<C, T>>,
-    animation_store: &Read<AnimationStore<ID, AnimationParam>>,
-    sprite_animation_storage: &Read<AssetStorage<AnimationData<AnimationParam>>>,
-) -> Result<(), RegisterError>
+    animation_store: &Read<AnimationStore<ID, AnimationParam, P, A>>,
+    sprite_animation_storage: &Read<AssetStorage<AnimationData<AnimationParam, P, A>>>,
+) -> Result<(), RegisterError<P, A>>
 where
     C: 'static + Send + Sync + CollisionData + CollisionFromData<Transform> + std::fmt::Debug,
     T: 'static + Send + Sync + ParamaterFromData<AnimationParam>,
@@ -108,17 +112,15 @@ where
             return Ok(());
         }
     };
-    let pack_name = pack_id.to_string();
-    let animation_name = animation_id.to_string();
     let pack = animation_store
         .get_animation_handle(id)
         .and_then(|handle| sprite_animation_storage.get(handle))
-        .and_then(|data| data.pack(&pack_name))
-        .ok_or(RegisterError::NotFoundPack)?;
+        .and_then(|data| data.pack(&pack_id))
+        .ok_or(RegisterError::NotFoundPack(pack_id))?;
 
     let animation = pack
-        .animation(&animation_name)
-        .ok_or(RegisterError::NotFoundAnimation)?;
+        .animation(&animation_id)
+        .ok_or(RegisterError::NotFoundAnimation(animation_id))?;
     let frame = animation.sec_to_frame(time.current_time());
     let mut global_transforms = BTreeMap::new();
     pack.parts().enumerate().for_each(|(part_id, part)| {

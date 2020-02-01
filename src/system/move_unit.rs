@@ -36,8 +36,8 @@ where
     A: AnimationKey,
 {
     type SystemData = (
-        Read<'s, AnimationStore<ID, AnimationParam>>,
-        Read<'s, AssetStorage<AnimationData<AnimationParam>>>,
+        Read<'s, AnimationStore<ID, AnimationParam, P, A>>,
+        Read<'s, AssetStorage<AnimationData<AnimationParam, P, A>>>,
         ReadStorage<'s, PlayAnimationKey<ID, P, A>>,
         ReadStorage<'s, AnimationTime>,
         WriteStorage<'s, Transform>,
@@ -54,8 +54,8 @@ fn move_transform<ID, P, A>(
     key: &PlayAnimationKey<ID, P, A>,
     time: &AnimationTime,
     _transform: &mut Transform,
-    animation_store: &AnimationStore<ID, AnimationParam>,
-    sprite_animation_storage: &AssetStorage<AnimationData<AnimationParam>>,
+    animation_store: &AnimationStore<ID, AnimationParam, P, A>,
+    sprite_animation_storage: &AssetStorage<AnimationData<AnimationParam, P, A>>,
 ) -> Option<()>
 where
     ID: FileId,
@@ -71,8 +71,8 @@ where
     let pack = animation_store
         .get_animation_handle(id)
         .and_then(|handle| sprite_animation_storage.get(handle))
-        .and_then(|data| data.pack(&pack_id.to_string()))?;
-    let animation = pack.animation(&animation_id.to_string())?;
+        .and_then(|data| data.pack(&pack_id))?;
+    let animation = pack.animation(&animation_id)?;
 
     let current_frame = animation.sec_to_frame_loop(time.current_time());
     let prev_frame = animation.sec_to_frame_loop(time.prev_time());
