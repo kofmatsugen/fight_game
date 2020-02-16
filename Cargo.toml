@@ -11,13 +11,17 @@ lazy_static="*"
 amethyst-sprite-studio={path = "../amethyst-sprite-studio/"}
 amethyst-collision={path="../amethyst-collision/"}
 amethyst = {git = "https://github.com/amethyst/amethyst.git", features = ["vulkan"] }
+input-handle={path="../input-handle/"}
 serde="*"
 serde_json="*"
 ncollide2d="*"
 nalgebra="*"
 log="*"
 failure="*"
+bitflags="*"
+debug_system={path="../debug_system/", required-features=["debug"]}
 
 [features]
 default=[]
 serialize=[]
+debug=[]
