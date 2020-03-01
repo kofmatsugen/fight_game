@@ -29,6 +29,10 @@ impl CommandList {
         }
     }
 
+    pub fn commands(&self) -> impl Iterator<Item = (&CommandId, &Command)> {
+        self.commands.iter()
+    }
+
     pub fn command(&self, key: &CommandId) -> Option<&Command> {
         self.commands.get(key)
     }
@@ -38,5 +42,25 @@ impl CommandList {
         let command = Command::new(command)?;
         self.commands.insert(key, command);
         Ok(())
+    }
+}
+
+pub struct CommandStore {
+    command_lists: BTreeMap<String, CommandListHandle>,
+}
+
+impl CommandStore {
+    pub fn new() -> Self {
+        CommandStore {
+            command_lists: std::collections::BTreeMap::new(),
+        }
+    }
+
+    pub fn commands(&self) -> impl Iterator<Item = (&String, &CommandListHandle)> {
+        self.command_lists.iter()
+    }
+
+    pub fn add_command(&mut self, key: &str, command: CommandListHandle) {
+        self.command_lists.insert(key.into(), command);
     }
 }

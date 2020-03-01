@@ -1,7 +1,7 @@
-use crate::resource::command::{CommandList, CommandListHandle};
+use crate::resource::command::{CommandList, CommandStore};
 use amethyst::{
     assets::{AssetStorage, Loader, ProgressCounter, RonFormat},
-    ecs::{Read, ReadExpect, World},
+    ecs::{Read, ReadExpect, World, WriteExpect},
 };
 
 impl CommandLoad for &mut World {
@@ -10,20 +10,24 @@ impl CommandLoad for &mut World {
         dir_path: F, // コマンドファイルのあるディレクトリパス指定
         command_name: C,
         progress: &mut ProgressCounter,
-    ) -> CommandListHandle
-    where
+    ) where
         F: Into<String>,
         C: Into<String>,
     {
         self.exec(
-            |(loader, storage): (ReadExpect<Loader>, Read<AssetStorage<CommandList>>)| {
+            |(mut store, loader, storage): (
+                WriteExpect<CommandStore>,
+                ReadExpect<Loader>,
+                Read<AssetStorage<CommandList>>,
+            )| {
                 let dir_path = dir_path.into();
                 let command_name = command_name.into();
                 let path = format!("{}/{}.com.ron", dir_path, command_name);
                 log::info!("load command: {:?}", path);
-                loader.load(path, RonFormat, progress, &storage)
+                let handle = loader.load(path, RonFormat, progress, &storage);
+                store.add_command(&command_name, handle);
             },
-        )
+        );
     }
 }
 
@@ -33,8 +37,7 @@ pub trait CommandLoad {
         dir_path: F, // コマンドファイルのあるディレクトリパス指定
         command_name: C,
         progress: &mut ProgressCounter,
-    ) -> CommandListHandle
-    where
+    ) where
         F: Into<String>,
         C: Into<String>;
 }

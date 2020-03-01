@@ -5,10 +5,8 @@ use amethyst::{
     ui::{Anchor, LineMode, UiText, UiTransform},
     utils::circular_buffer::CircularBuffer,
 };
-use input_handle::traits::InputParser;
-
-#[cfg(feature = "debug")]
 use debug_system::DebugFont;
+use input_handle::traits::InputParser;
 
 type InputEvent = <FightInput as InputParser>::Event;
 type InputSignal = <FightInput as InputParser>::InputSignal;

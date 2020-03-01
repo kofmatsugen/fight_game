@@ -59,6 +59,7 @@ where
         world.insert(amethyst::shrev::EventChannel::<
             <FightInput as InputParser>::Event,
         >::default());
+        world.insert(crate::resource::command::CommandStore::new());
         builder.add(MoveSystem::<ID, P, A>::new(), "animation_move_system", &[]);
 
         builder.add(
@@ -77,6 +78,13 @@ where
         builder.add(
             debug::input::InputDebugSystem::new(world),
             "input_debug_system",
+            &[],
+        );
+
+        #[cfg(feature = "debug")]
+        builder.add(
+            debug::command::CommandDebugSystem::new(world),
+            "command_debug_system",
             &[],
         );
 
