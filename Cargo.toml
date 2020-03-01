@@ -12,6 +12,7 @@ amethyst-sprite-studio={path = "../amethyst-sprite-studio/"}
 amethyst-collision={path="../amethyst-collision/"}
 amethyst = {git = "https://github.com/amethyst/amethyst.git", features = ["vulkan"] }
 input-handle={path="../input-handle/"}
+command-parser={path="../command-parser/"}
 serde= "1.0.104"
 serde_json= "1.0.48"
 ncollide2d= "0.21.0"
@@ -20,7 +21,6 @@ log= "0.4.8"
 failure= "0.1.6"
 bitflags= "1.2.1"
 debug_system={path="../debug_system/", required-features=["debug"]}
-command-parser={path="../command-parser/"}
 
 [features]
 default=[]

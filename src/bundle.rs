@@ -3,10 +3,12 @@ use crate::system::debug;
 use crate::{
     input::FightInput,
     paramater::AnimationParam,
+    resource::command::CommandList,
     system::{move_unit::MoveSystem, register_collider::RegisterColliderSystem},
     traits::{CollisionData, CollisionFromData, ParamaterFromData},
 };
 use amethyst::{
+    assets::Processor,
     core::{SystemBundle, Transform},
     ecs::{DispatcherBuilder, World},
 };
@@ -48,6 +50,12 @@ where
         builder: &mut DispatcherBuilder,
     ) -> Result<(), amethyst::Error> {
         log::info!("fight game bundle build");
+        builder.add(
+            Processor::<CommandList>::new(),
+            "command_list_processor",
+            &[],
+        );
+
         world.insert(amethyst::shrev::EventChannel::<
             <FightInput as InputParser>::Event,
         >::default());
