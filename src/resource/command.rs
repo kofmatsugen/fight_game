@@ -12,7 +12,7 @@ pub type CommandListHandle = Handle<CommandList>;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CommandList {
     #[serde(bound(deserialize = "BTreeMap<CommandId, Command>: Deserialize<'de>"))]
-    commands: BTreeMap<CommandId, Command>,
+    commands: BTreeMap<CommandId, Vec<Command>>,
 }
 
 impl Asset for CommandList {
@@ -29,18 +29,20 @@ impl CommandList {
         }
     }
 
-    pub fn commands(&self) -> impl Iterator<Item = (&CommandId, &Command)> {
-        self.commands.iter()
+    pub fn commands(&self) -> impl Iterator<Item = (&CommandId, &[Command])> {
+        self.commands
+            .iter()
+            .map(|(k, commands)| (k, commands.as_slice()))
     }
 
-    pub fn command(&self, key: &CommandId) -> Option<&Command> {
-        self.commands.get(key)
+    pub fn command(&self, key: &CommandId) -> Option<&[Command]> {
+        self.commands.get(key).map(|commands| commands.as_slice())
     }
 
     #[cfg(feature = "serialize")]
     pub fn add_command(&mut self, key: CommandId, command: &str) -> Result<(), failure::Error> {
         let command = Command::new(command)?;
-        self.commands.insert(key, command);
+        self.commands.entry(key).or_insert(vec![]).push(command);
         Ok(())
     }
 }
@@ -56,8 +58,13 @@ impl CommandStore {
         }
     }
 
-    pub fn commands(&self) -> impl Iterator<Item = (&String, &CommandListHandle)> {
+    #[cfg(feature = "debug")]
+    pub fn loaded_commands(&self) -> impl Iterator<Item = (&String, &CommandListHandle)> {
         self.command_lists.iter()
+    }
+
+    pub fn commands(&self) -> impl Iterator<Item = &CommandListHandle> {
+        self.command_lists.iter().map(|(_, handle)| handle)
     }
 
     pub fn add_command(&mut self, key: &str, command: CommandListHandle) {

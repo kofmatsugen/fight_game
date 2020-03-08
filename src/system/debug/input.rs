@@ -1,34 +1,34 @@
-use crate::input::{FightInput, InputFlag};
+use crate::{
+    components::PlayerTag,
+    input::{FightInput, InputFlag, InputSignal},
+};
 use amethyst::{
-    ecs::{Entities, Entity, Read, ReadExpect, System, World, WriteStorage},
-    shrev::{EventChannel, ReaderId},
+    ecs::{Entities, Entity, ReadExpect, System, World, WriteStorage},
     ui::{Anchor, LineMode, UiText, UiTransform},
     utils::circular_buffer::CircularBuffer,
 };
 use debug_system::DebugFont;
 use input_handle::traits::InputParser;
-
-type InputEvent = <FightInput as InputParser>::Event;
-type InputSignal = <FightInput as InputParser>::InputSignal;
+use std::collections::BTreeMap;
 
 pub struct InputDebugSystem {
-    debug_ui_stick: Option<Entity>,
-    debug_ui_button: Option<Entity>,
-    debug_ui_event: Option<Entity>,
-    _reader: ReaderId<InputEvent>,
-    log_buffer: CircularBuffer<InputFlag>,
+    debug_ui_stick: BTreeMap<PlayerTag, Entity>,
+    debug_ui_button: BTreeMap<PlayerTag, Entity>,
+    debug_ui_event: BTreeMap<PlayerTag, Entity>,
+    log_buffer: BTreeMap<PlayerTag, CircularBuffer<InputFlag>>,
+    last_key: BTreeMap<PlayerTag, InputSignal>,
 }
 
+const BUFFER_SIZE: usize = 20;
+
 impl InputDebugSystem {
-    pub fn new(world: &mut World) -> Self {
+    pub fn new(_: &mut World) -> Self {
         InputDebugSystem {
-            debug_ui_stick: None,
-            debug_ui_button: None,
-            debug_ui_event: None,
-            _reader: world
-                .fetch_mut::<EventChannel<InputEvent>>()
-                .register_reader(),
-            log_buffer: CircularBuffer::new(20),
+            debug_ui_stick: Default::default(),
+            debug_ui_button: Default::default(),
+            debug_ui_event: Default::default(),
+            log_buffer: Default::default(),
+            last_key: Default::default(),
         }
     }
 }
@@ -38,71 +38,100 @@ impl<'s> System<'s> for InputDebugSystem {
         ReadExpect<'s, DebugFont>,
         WriteStorage<'s, UiTransform>,
         WriteStorage<'s, UiText>,
-        Read<'s, InputSignal>,
-        Read<'s, EventChannel<InputEvent>>,
-        ReadExpect<'s, CircularBuffer<InputSignal>>,
+        ReadExpect<'s, CircularBuffer<<FightInput as InputParser<'s>>::InputSignal>>,
         Entities<'s>,
     );
 
-    fn run(&mut self, data: Self::SystemData) {
-        let (debug_font, mut transforms, mut texts, signal, _event, input_buffer, entities) = data;
+    fn run(&mut self, mut data: Self::SystemData) {
+        self.update_ui(&mut data, PlayerTag::P1);
+        //self.update_ui(&mut data, PlayerTag::P2);
+    }
+}
 
+impl InputDebugSystem {
+    fn update_ui<'s>(&mut self, data: &mut <Self as System<'s>>::SystemData, tag: PlayerTag) {
+        let (debug_font, transforms, texts, input_buffer, entities) = data;
         // 実際の履歴の最後と履歴の最後が違ったら差分を記録
         let logged = match (
-            input_buffer.queue().iter().last().map(|f| f.is_push_flag()),
-            self.log_buffer.queue().iter().last(),
+            input_buffer
+                .queue()
+                .iter()
+                .last()
+                .and_then(|f| f.get(&tag))
+                .map(|f| f.is_push_flag()),
+            self.last_key.get(&tag),
         ) {
-            (Some(last), Some(&log_last)) => {
-                let diff = last ^ log_last;
-                if last.is_empty() || diff.is_empty() {
+            (Some(last), Some(log_last)) => {
+                let diff = last ^ log_last.is_push_flag();
+                if diff.is_empty() {
                     None
                 } else {
                     Some(last)
                 }
             }
-            (Some(last), None) => Some(last),
             (_, _) => None,
         };
 
-        if let Some(logged) = logged {
-            self.log_buffer.push(logged);
+        match logged {
+            Some(logged) => {
+                if logged.is_empty() == false {
+                    self.log_buffer
+                        .entry(tag)
+                        .or_insert(CircularBuffer::new(BUFFER_SIZE))
+                        .push(logged);
+                }
+                if let Some(signal) = input_buffer.queue().iter().last().and_then(|f| f.get(&tag)) {
+                    self.last_key.insert(tag, *signal);
+                }
+            }
+            None => {
+                self.log_buffer
+                    .entry(tag)
+                    .or_insert(CircularBuffer::new(BUFFER_SIZE));
+                self.last_key.entry(tag).or_insert(InputSignal::default());
+            }
         }
 
-        update_event(
-            &mut self.debug_ui_event,
-            &mut transforms,
-            &mut texts,
+        let event_ui = update_event(
+            self.debug_ui_event.get(&tag),
+            transforms,
+            texts,
             &debug_font,
             &entities,
-            &self.log_buffer,
+            &self.log_buffer[&tag], // 上で絶対入れるので[]アクセスでOK
         );
-        update_stick_ui(
-            &mut self.debug_ui_stick,
-            &signal,
-            &mut transforms,
-            &mut texts,
-            &debug_font,
-            &entities,
-        );
-        update_stick_button(
-            &mut self.debug_ui_button,
-            &signal,
-            &mut transforms,
-            &mut texts,
+        self.debug_ui_event.entry(tag).or_insert(event_ui);
+
+        let stick_ui = update_stick_ui(
+            self.debug_ui_stick.get(&tag),
+            &self.last_key[&tag], // 上で絶対入れるので[]アクセスでOK
+            transforms,
+            texts,
             &debug_font,
             &entities,
         );
+        self.debug_ui_stick.entry(tag).or_insert(stick_ui);
+
+        let button_ui = update_stick_button(
+            self.debug_ui_button.get(&tag),
+            &self.last_key[&tag], // 上で絶対入れるので[]アクセスでOK
+            transforms,
+            texts,
+            &debug_font,
+            &entities,
+        );
+        self.debug_ui_button.entry(tag).or_insert(button_ui);
     }
 }
 
 fn update_stick_ui(
-    debug_ui_stick: &mut Option<Entity>,
+    debug_ui_stick: Option<&Entity>,
     signal: &InputSignal,
     transforms: &mut WriteStorage<UiTransform>,
     texts: &mut WriteStorage<UiText>,
     debug_font: &DebugFont,
     entities: &Entities,
-) {
+) -> Entity {
     let up = format!(
         "{} {} {}",
         ox_(&signal, InputFlag::LEFT_UP),
@@ -124,9 +153,10 @@ fn update_stick_ui(
 
     let input_text = format!("{}\n{}\n{}", up, center, down);
 
-    if let Some(ui) = debug_ui_stick {
-        let text = texts.get_mut(*ui).unwrap();
+    if let Some(&ui) = debug_ui_stick {
+        let text = texts.get_mut(ui).unwrap();
         text.text = input_text;
+        ui
     } else {
         let system_font = debug_font.system_font.clone();
         let entity = entities.create();
@@ -145,18 +175,18 @@ fn update_stick_ui(
 
         let _transform = transforms.insert(entity, transform);
         let _text = texts.insert(entity, text);
-        *debug_ui_stick = Some(entity);
+        entity
     }
 }
 
 fn update_stick_button(
-    debug_ui_button: &mut Option<Entity>,
+    debug_ui_button: Option<&Entity>,
     signal: &InputSignal,
     transforms: &mut WriteStorage<UiTransform>,
     texts: &mut WriteStorage<UiText>,
     debug_font: &DebugFont,
     entities: &Entities,
-) {
+) -> Entity {
     let up = format!(
         "{} {}",
         ox_(&signal, InputFlag::A),
@@ -170,9 +200,10 @@ fn update_stick_button(
 
     let input_text = format!("{}\n{}", up, down);
 
-    if let Some(ui) = debug_ui_button {
-        let text = texts.get_mut(*ui).unwrap();
+    if let Some(&ui) = debug_ui_button {
+        let text = texts.get_mut(ui).unwrap();
         text.text = input_text;
+        ui
     } else {
         let system_font = debug_font.system_font.clone();
         let entity = entities.create();
@@ -191,7 +222,47 @@ fn update_stick_button(
 
         let _transform = transforms.insert(entity, transform);
         let _text = texts.insert(entity, text);
-        *debug_ui_button = Some(entity);
+        entity
+    }
+}
+
+fn update_event(
+    debug_ui_button: Option<&Entity>,
+    transforms: &mut WriteStorage<UiTransform>,
+    texts: &mut WriteStorage<UiText>,
+    debug_font: &DebugFont,
+    entities: &Entities,
+    buffer: &CircularBuffer<InputFlag>,
+) -> Entity {
+    let mut output = String::new();
+    for f in buffer.queue().iter() {
+        output.push_str(&format!("{}\n", f));
+    }
+
+    if let Some(&ui) = debug_ui_button {
+        let text = texts.get_mut(ui).unwrap();
+        text.text = output;
+        ui
+    } else {
+        let system_font = debug_font.system_font.clone();
+        let entity = entities.create();
+        let transform = UiTransform::new(
+            "fight_input_event".to_string(),
+            Anchor::TopRight,
+            Anchor::TopRight,
+            -30.,
+            -30.,
+            0.,
+            140.,
+            400.,
+        );
+        let mut text = UiText::new(system_font, output, [0., 0., 0., 1.], 18.);
+        text.line_mode = LineMode::Wrap;
+        text.align = Anchor::TopRight;
+
+        let _transform = transforms.insert(entity, transform);
+        let _text = texts.insert(entity, text);
+        entity
     }
 }
 
@@ -202,43 +273,5 @@ fn ox_(signal: &InputSignal, flag: InputFlag) -> &'static str {
         "o"
     } else {
         "-"
-    }
-}
-
-fn update_event(
-    debug_ui_button: &mut Option<Entity>,
-    transforms: &mut WriteStorage<UiTransform>,
-    texts: &mut WriteStorage<UiText>,
-    debug_font: &DebugFont,
-    entities: &Entities,
-    buffer: &CircularBuffer<InputFlag>,
-) {
-    let mut output = String::new();
-    for f in buffer.queue().iter() {
-        output.push_str(&format!("{}\n", f));
-    }
-
-    if let Some(ui) = debug_ui_button {
-        let text = texts.get_mut(*ui).unwrap();
-        text.text = output;
-    } else {
-        let system_font = debug_font.system_font.clone();
-        let entity = entities.create();
-        let transform = UiTransform::new(
-            "fight_input_event".to_string(),
-            Anchor::TopRight,
-            Anchor::TopRight,
-            0.,
-            0.,
-            0.,
-            100.,
-            800.,
-        );
-        let mut text = UiText::new(system_font, output, [0., 0., 0., 1.], 18.);
-        text.line_mode = LineMode::Wrap;
-
-        let _transform = transforms.insert(entity, transform);
-        let _text = texts.insert(entity, text);
-        *debug_ui_button = Some(entity);
     }
 }

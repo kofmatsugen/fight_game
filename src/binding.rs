@@ -1,11 +1,6 @@
+use crate::components::PlayerTag;
 use amethyst::input::BindingTypes;
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PlayerTag {
-    P1,
-    P2,
-}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Axis {

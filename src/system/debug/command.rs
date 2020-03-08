@@ -52,11 +52,14 @@ fn update_loaded(
     list: &AssetStorage<CommandList>,
 ) {
     let mut input_text = String::new();
-    for (id, handle) in store.commands() {
+    for (id, handle) in store.loaded_commands() {
         if let Some(list) = list.get(handle) {
             input_text.push_str(&format!("{}: \n", id));
             for (id, c) in list.commands() {
-                input_text.push_str(&format!("\t{:?}: {}\n", id, c));
+                input_text.push_str(&format!("    {:?}:\n", id));
+                for c in c {
+                    input_text.push_str(&format!("        {}\n", c));
+                }
             }
         }
     }
@@ -69,16 +72,17 @@ fn update_loaded(
         let entity = entities.create();
         let transform = UiTransform::new(
             "command_list".to_string(),
-            Anchor::MiddleLeft,
+            Anchor::TopLeft,
             Anchor::TopLeft,
             0.,
-            0.,
+            -80.,
             0.,
             200.,
             500.,
         );
         let mut text = UiText::new(system_font, input_text, [0., 0., 0., 1.], 16.);
         text.line_mode = LineMode::Wrap;
+        text.align = Anchor::TopLeft;
 
         let _transform = transforms.insert(entity, transform);
         let _text = texts.insert(entity, text);
