@@ -43,10 +43,15 @@ impl<'s> System<'s> for InputDebugSystem {
     fn run(&mut self, data: Self::SystemData) {
         let (finder, mut texts, input_buffer) = data;
 
+        // Player1
         self.find_ui(&finder, PlayerTag::P1);
         self.update_log(PlayerTag::P1, &input_buffer);
         self.update_ui(PlayerTag::P1, &mut texts, &input_buffer);
-        //self.update_ui(&mut data, PlayerTag::P2);
+
+        // Player2
+        self.find_ui(&finder, PlayerTag::P2);
+        self.update_log(PlayerTag::P2, &input_buffer);
+        self.update_ui(PlayerTag::P2, &mut texts, &input_buffer);
     }
 }
 
