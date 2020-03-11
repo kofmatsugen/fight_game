@@ -3,11 +3,10 @@ use crate::{
     input::{FightInput, InputFlag, InputSignal},
 };
 use amethyst::{
-    ecs::{Entities, Entity, ReadExpect, System, World, WriteStorage},
-    ui::{Anchor, LineMode, UiFinder, UiText, UiTransform},
+    ecs::{Entity, ReadExpect, System, World, WriteStorage},
+    ui::{UiFinder, UiText},
     utils::circular_buffer::CircularBuffer,
 };
-use debug_system::DebugFont;
 use input_handle::traits::InputParser;
 use std::collections::BTreeMap;
 
@@ -46,12 +45,12 @@ impl<'s> System<'s> for InputDebugSystem {
         // Player1
         self.find_ui(&finder, PlayerTag::P1);
         self.update_log(PlayerTag::P1, &input_buffer);
-        self.update_ui(PlayerTag::P1, &mut texts, &input_buffer);
+        self.update_ui(PlayerTag::P1, &mut texts);
 
         // Player2
         self.find_ui(&finder, PlayerTag::P2);
         self.update_log(PlayerTag::P2, &input_buffer);
-        self.update_ui(PlayerTag::P2, &mut texts, &input_buffer);
+        self.update_ui(PlayerTag::P2, &mut texts);
     }
 }
 
@@ -115,12 +114,7 @@ impl InputDebugSystem {
         Some(())
     }
 
-    fn update_ui<'s>(
-        &mut self,
-        tag: PlayerTag,
-        texts: &mut WriteStorage<'s, UiText>,
-        input_buffer: &CircularBuffer<<FightInput as InputParser<'s>>::InputSignal>,
-    ) {
+    fn update_ui<'s>(&mut self, tag: PlayerTag, texts: &mut WriteStorage<'s, UiText>) {
         update_event(
             self.debug_ui_event.get(&tag),
             texts,
