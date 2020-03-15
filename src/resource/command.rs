@@ -41,7 +41,7 @@ impl CommandList {
 
     #[cfg(feature = "serialize")]
     pub fn add_command(&mut self, key: CommandId, command: &str) -> Result<(), failure::Error> {
-        let command = Command::new(command)?;
+        let command = Command::build(command)?;
         self.commands.entry(key).or_insert(vec![]).push(command);
         Ok(())
     }
