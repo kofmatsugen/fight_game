@@ -42,14 +42,13 @@ impl<'s> System<'s> for InputDebugSystem {
     fn run(&mut self, data: Self::SystemData) {
         let (finder, mut texts, input_buffer) = data;
 
-        // Player1
-        self.find_ui(&finder, PlayerTag::P1);
         self.update_log(PlayerTag::P1, &input_buffer);
-        self.update_ui(PlayerTag::P1, &mut texts);
-
-        // Player2
-        self.find_ui(&finder, PlayerTag::P2);
         self.update_log(PlayerTag::P2, &input_buffer);
+
+        self.find_ui(&finder, PlayerTag::P1);
+        self.find_ui(&finder, PlayerTag::P2);
+
+        self.update_ui(PlayerTag::P1, &mut texts);
         self.update_ui(PlayerTag::P2, &mut texts);
     }
 }
@@ -114,11 +113,15 @@ impl InputDebugSystem {
         Some(())
     }
 
-    fn update_ui<'s>(&mut self, tag: PlayerTag, texts: &mut WriteStorage<'s, UiText>) {
+    fn update_ui<'s>(
+        &mut self,
+        tag: PlayerTag,
+        texts: &mut WriteStorage<'s, UiText>,
+    ) -> Option<()> {
         update_event(
             self.debug_ui_event.get(&tag),
             texts,
-            &self.log_buffer[&tag], // 上で絶対入れるので[]アクセスでOK
+            self.log_buffer.get(&tag)?, // 上で絶対入れるので[]アクセスでOK
         );
 
         update_stick_ui(
@@ -132,6 +135,7 @@ impl InputDebugSystem {
             &self.last_key[&tag], // 上で絶対入れるので[]アクセスでOK
             texts,
         );
+        Some(())
     }
 }
 
