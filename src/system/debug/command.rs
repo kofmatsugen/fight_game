@@ -1,91 +1,75 @@
-use crate::resource::command::{CommandList, CommandStore};
+use crate::{
+    id::command::Command,
+    input::FightInput,
+    resource::command::{CommandList, CommandStore},
+};
 use amethyst::{
     assets::AssetStorage,
-    ecs::{Entities, Entity, Read, ReadExpect, System, World, WriteStorage},
-    ui::{Anchor, LineMode, UiText, UiTransform},
+    ecs::{Entity, Read, ReadExpect, ReaderId, System, World, WriteStorage},
+    shrev::EventChannel,
+    ui::{UiFinder, UiText},
 };
-use debug_system::DebugFont;
+use input_handle::traits::InputParser;
+use std::collections::BTreeMap;
 
-pub struct CommandDebugSystem {
+type Event<'a> = <FightInput as InputParser<'a>>::Event;
+
+pub struct CommandDebugSystem<'a> {
     debug_commands: Option<Entity>,
+    reader: ReaderId<Event<'a>>,
+    last_commands: BTreeMap<Entity, Command>,
 }
 
-impl CommandDebugSystem {
-    pub fn new(_world: &mut World) -> Self {
+impl<'a> CommandDebugSystem<'a> {
+    pub fn new(world: &mut World) -> Self {
         CommandDebugSystem {
             debug_commands: None,
+            reader: world
+                .fetch_mut::<EventChannel<Event<'a>>>()
+                .register_reader(),
+            last_commands: BTreeMap::new(),
         }
     }
 }
 
-impl<'s> System<'s> for CommandDebugSystem {
+impl<'a, 's> System<'s> for CommandDebugSystem<'a> {
     type SystemData = (
-        ReadExpect<'s, DebugFont>,
-        WriteStorage<'s, UiTransform>,
+        UiFinder<'s>,
         WriteStorage<'s, UiText>,
-        Entities<'s>,
         ReadExpect<'s, CommandStore>,
         Read<'s, AssetStorage<CommandList>>,
+        Read<'s, EventChannel<Event<'a>>>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (debug_font, mut transforms, mut texts, entities, store, list) = data;
-        update_loaded(
-            &mut self.debug_commands,
-            &mut transforms,
-            &mut texts,
-            &debug_font,
-            &entities,
-            &store,
-            &list,
-        );
+        let (finder, mut texts, _store, _list, channel) = data;
+        self.debug_commands = finder.find("debug_command_list");
+        for &(e, id) in channel.read(&mut self.reader) {
+            self.last_commands
+                .entry(e)
+                .and_modify(|entried| {
+                    if *entried != id {
+                        *entried = id;
+                    }
+                })
+                .or_insert(id);
+        }
+        self.debug_commands
+            .map(|e| update_detected(e, &mut texts, &self.last_commands));
     }
 }
 
-fn update_loaded(
-    command_list: &mut Option<Entity>,
-    transforms: &mut WriteStorage<UiTransform>,
+fn update_detected(
+    commands: Entity,
     texts: &mut WriteStorage<UiText>,
-    debug_font: &DebugFont,
-    entities: &Entities,
-    store: &CommandStore,
-    list: &AssetStorage<CommandList>,
-) {
-    let mut input_text = String::new();
-    for (id, handle) in store.loaded_commands() {
-        if let Some(list) = list.get(handle) {
-            input_text.push_str(&format!("{}: \n", id));
-            for (id, c) in list.commands() {
-                input_text.push_str(&format!("    {:?}:\n", id));
-                for c in c {
-                    input_text.push_str(&format!("        {}\n", c));
-                }
-            }
-        }
+    last_commands: &BTreeMap<Entity, Command>,
+) -> Option<()> {
+    let commands = texts.get_mut(commands)?;
+    let mut text = String::new();
+    for (e, id) in last_commands.iter() {
+        text.push_str(&format!("{}-{}: {:?}\n", e.id(), e.gen().id(), id));
     }
+    commands.text = text;
 
-    if let Some(ui) = command_list {
-        let text = texts.get_mut(*ui).unwrap();
-        text.text = input_text;
-    } else {
-        let system_font = debug_font.system_font.clone();
-        let entity = entities.create();
-        let transform = UiTransform::new(
-            "command_list".to_string(),
-            Anchor::TopLeft,
-            Anchor::TopLeft,
-            0.,
-            -80.,
-            0.,
-            200.,
-            500.,
-        );
-        let mut text = UiText::new(system_font, input_text, [0., 0., 0., 1.], 16.);
-        text.line_mode = LineMode::Wrap;
-        text.align = Anchor::TopLeft;
-
-        let _transform = transforms.insert(entity, transform);
-        let _text = texts.insert(entity, text);
-        *command_list = Some(entity);
-    }
+    Some(())
 }

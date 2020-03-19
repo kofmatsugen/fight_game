@@ -63,12 +63,13 @@ impl<'s> InputParser<'s> for FightInput {
     ) -> Vec<Self::Event> {
         (&*entities, &tags, &direction)
             .join()
-            .filter_map(|(e, tag, direction)| {
+            .map(|(e, tag, direction)| {
                 store
                     .commands()
-                    .filter_map(|handle| storage.get(handle).map(|l| l.commands()))
-                    .flatten()
-                    .find_map(|(id, commands)| {
+                    .filter_map(|handle| storage.get(handle).map(|l| l.commands())) // すべてのコマンドをパース対象
+                    .flatten() // 各コマンドのリストを一連のリストに平坦化
+                    .filter_map(move |(id, commands)| {
+                        // 特定のコマンドにセットされたコマンドの内どれかが成立すればOK
                         let judge_ok = commands.iter().any(|command| {
                             command.judge_inputs(
                                 buffer.queue().iter().filter_map(|signal| {
@@ -79,6 +80,7 @@ impl<'s> InputParser<'s> for FightInput {
                                 8,
                             )
                         });
+                        // 判定が成立してれば，対象のエンティティとコマンドIDをリストに
                         if judge_ok {
                             Some((e, *id))
                         } else {
@@ -86,6 +88,7 @@ impl<'s> InputParser<'s> for FightInput {
                         }
                     })
             })
+            .flatten()
             .collect()
     }
 }

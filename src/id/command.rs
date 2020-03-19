@@ -2,19 +2,18 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum Command {
-    A,
-    B,
-    C,
-    D,
-    Walk,
     Back,
-    Dash,
+    Walk,
     BackDash,
+    Dash,
     VerticalJump,
     BackJump,
     FrontJump,
     Crouch,
     BackCrouch,
     FrontCrouch,
-    Neutral,
+    A,
+    B,
+    C,
+    D,
 }
