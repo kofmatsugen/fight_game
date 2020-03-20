@@ -80,11 +80,13 @@ impl<C, T> Collisions<C, T> {
     }
 }
 
-impl<C, T> Collider<f32, T> for Collisions<C, T>
+impl<C, T> Collider for Collisions<C, T>
 where
     C: 'static + Sync + Send + CollisionData,
     T: 'static + Send + Sync + Clone + Copy,
 {
+    type CollisionParamater = T;
+
     fn registered_handles(
         &self,
     ) -> Vec<(
