@@ -7,6 +7,10 @@ pub struct ActiveCommand {
 }
 
 impl ActiveCommand {
+    pub fn clear(&mut self) {
+        self.active_commands.clear();
+    }
+
     pub fn activate(&mut self, command: Command) {
         self.active_commands.insert(command);
     }

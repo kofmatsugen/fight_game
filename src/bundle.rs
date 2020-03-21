@@ -4,7 +4,10 @@ use crate::{
     input::FightInput,
     paramater::AnimationParam,
     resource::command::CommandList,
-    system::{move_unit::MoveSystem, register_collider::RegisterColliderSystem},
+    system::{
+        command_activate::CommandActivateSystem, move_unit::MoveSystem,
+        register_collider::RegisterColliderSystem,
+    },
     traits::{CollisionData, CollisionFromData, ParamaterFromData},
 };
 use amethyst::{
@@ -56,6 +59,7 @@ where
             &[],
         );
 
+        // コマンドのイベントチャンネル登録
         world.insert(amethyst::shrev::EventChannel::<
             <FightInput as InputParser>::Event,
         >::default());
@@ -66,6 +70,12 @@ where
             InputHandleSystem::<FightInput>::new(),
             "fight_input_system",
             &[],
+        );
+
+        builder.add(
+            CommandActivateSystem::new(world),
+            "command_activate_system",
+            &["fight_input_system"],
         );
 
         builder.add(

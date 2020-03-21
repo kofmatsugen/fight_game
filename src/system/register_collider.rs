@@ -160,7 +160,7 @@ where
             // キーフレームから collisions に登録するデータを生成するトレイト
             let data = T::make_collision_data(user.unwrap());
 
-            log::info!(
+            log::trace!(
                 "register {:?}: {:?}, {:?}",
                 (pack_id, part_id),
                 c,
