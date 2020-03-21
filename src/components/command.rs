@@ -7,6 +7,12 @@ pub struct ActiveCommand {
 }
 
 impl ActiveCommand {
+    pub fn new() -> Self {
+        ActiveCommand {
+            active_commands: HashSet::new(),
+        }
+    }
+
     pub fn clear(&mut self) {
         self.active_commands.clear();
     }
