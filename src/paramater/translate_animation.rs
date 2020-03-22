@@ -4,7 +4,10 @@ use crate::{
     paramater::AnimationParam,
 };
 use amethyst::ecs::{Entity, ReadStorage};
-use amethyst_sprite_studio::traits::translate_animation::TranslateAnimation;
+use amethyst_sprite_studio::traits::{
+    animation_file::AnimationFile, translate_animation::TranslateAnimation,
+};
+use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct FightTranslation;
@@ -14,12 +17,22 @@ type FightPackKey = pack::PackKey;
 type FightAnimationKey = pack::AnimationKey;
 type FightUserData = AnimationParam;
 type FightOptionalData<'s> = (ReadStorage<'s, ActiveCommand>,);
-
-impl<'s> TranslateAnimation<'s> for FightTranslation {
+impl AnimationFile for FightTranslation {
     type FileId = FightFileId;
     type PackKey = FightPackKey;
     type AnimationKey = FightAnimationKey;
     type UserData = FightUserData;
+
+    fn to_file_name(file_id: &Self::FileId) -> &'static str {
+        FILE_LIST[file_id].0
+    }
+
+    fn sprite_sheet_num(file_id: &Self::FileId) -> usize {
+        FILE_LIST[file_id].1
+    }
+}
+
+impl<'s> TranslateAnimation<'s> for FightTranslation {
     type OptionalData = FightOptionalData<'s>;
 
     fn translate_animation(
@@ -166,4 +179,13 @@ fn on_finish_animation(
         .unwrap_or(pack::AnimationKey::Stance);
 
     (current_pack, next, 0)
+}
+
+lazy_static::lazy_static! {
+    static ref FILE_LIST: BTreeMap<file::FileId, (&'static str, usize)> = {
+        let mut list = BTreeMap::new();
+        list.insert(file::FileId::SpriteStudioSplash, ("splash1024", 1));
+        list.insert(file::FileId::Sample, ("sample", 1));
+        list
+    };
 }

@@ -1,9 +1,9 @@
-pub trait ParamaterFromData<T> {
-    fn make_collision_data(data: &T) -> Self;
+pub trait ParamaterFromData<T>: Sized {
+    fn make_collision_data(data: Option<&T>) -> Option<Self>;
 }
 
 impl<T> ParamaterFromData<T> for () {
-    fn make_collision_data(_: &T) -> () {
-        ()
+    fn make_collision_data(_: Option<&T>) -> Option<()> {
+        Some(())
     }
 }

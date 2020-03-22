@@ -1,4 +1,3 @@
-use crate::paramater::AnimationParam;
 use amethyst::{
     assets::AssetStorage,
     core::{
@@ -9,36 +8,30 @@ use amethyst::{
 use amethyst_sprite_studio::{
     components::{AnimationTime, PlayAnimationKey},
     resource::{data::AnimationData, AnimationStore},
-    traits::{AnimationKey, FileId},
+    traits::animation_file::AnimationFile,
 };
 use std::marker::PhantomData;
 
-pub struct MoveSystem<ID, P, A> {
-    _file_id: PhantomData<ID>,
-    _pack_id: PhantomData<P>,
-    _animation_id: PhantomData<A>,
+pub struct MoveSystem<T> {
+    _animation_file: PhantomData<T>,
 }
 
-impl<ID, P, A> MoveSystem<ID, P, A> {
+impl<T> MoveSystem<T> {
     pub fn new() -> Self {
         MoveSystem {
-            _file_id: PhantomData,
-            _pack_id: PhantomData,
-            _animation_id: PhantomData,
+            _animation_file: PhantomData,
         }
     }
 }
 
-impl<'s, ID, P, A> System<'s> for MoveSystem<ID, P, A>
+impl<'s, T> System<'s> for MoveSystem<T>
 where
-    ID: FileId,
-    P: AnimationKey,
-    A: AnimationKey,
+    T: AnimationFile,
 {
     type SystemData = (
-        Read<'s, AnimationStore<ID, AnimationParam, P, A>>,
-        Read<'s, AssetStorage<AnimationData<AnimationParam, P, A>>>,
-        ReadStorage<'s, PlayAnimationKey<ID, P, A>>,
+        Read<'s, AnimationStore<T>>,
+        Read<'s, AssetStorage<AnimationData<T>>>,
+        ReadStorage<'s, PlayAnimationKey<T>>,
         ReadStorage<'s, AnimationTime>,
         WriteStorage<'s, Transform>,
     );
@@ -50,17 +43,15 @@ where
     }
 }
 
-fn move_transform<ID, P, A>(
-    key: &PlayAnimationKey<ID, P, A>,
+fn move_transform<T>(
+    key: &PlayAnimationKey<T>,
     time: &AnimationTime,
     _transform: &mut Transform,
-    animation_store: &AnimationStore<ID, AnimationParam, P, A>,
-    sprite_animation_storage: &AssetStorage<AnimationData<AnimationParam, P, A>>,
+    animation_store: &AnimationStore<T>,
+    sprite_animation_storage: &AssetStorage<AnimationData<T>>,
 ) -> Option<()>
 where
-    ID: FileId,
-    P: AnimationKey,
-    A: AnimationKey,
+    T: AnimationFile,
 {
     let (id, &pack_id, &animation_id) = match (key.file_id(), key.pack_name(), key.animation_name())
     {

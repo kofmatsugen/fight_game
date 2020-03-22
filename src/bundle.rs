@@ -2,7 +2,6 @@
 use crate::system::debug;
 use crate::{
     input::FightInput,
-    paramater::AnimationParam,
     resource::command::CommandList,
     system::{
         command_activate::CommandActivateSystem, move_unit::MoveSystem,
@@ -15,37 +14,31 @@ use amethyst::{
     core::{SystemBundle, Transform},
     ecs::{DispatcherBuilder, World},
 };
-use amethyst_sprite_studio::traits::{AnimationKey, FileId};
+use amethyst_sprite_studio::traits::animation_file::AnimationFile;
 use input_handle::{system::InputHandleSystem, traits::InputParser};
 use std::marker::PhantomData;
 
-pub struct FightGameBundle<ID, P, A, C, T> {
-    _file_id: PhantomData<ID>,
-    _pack_key: PhantomData<P>,
-    _animation_key: PhantomData<A>,
-    _paramater: PhantomData<C>,
-    _collision: PhantomData<T>,
+pub struct FightGameBundle<T, C, P> {
+    _animation_file: PhantomData<T>,
+    _collision: PhantomData<C>,
+    _paramater: PhantomData<P>,
 }
 
-impl<ID, P, A, C, T> FightGameBundle<ID, P, A, C, T> {
+impl<T, C, P> FightGameBundle<T, C, P> {
     pub fn new() -> Self {
         FightGameBundle {
-            _file_id: PhantomData,
-            _pack_key: PhantomData,
-            _animation_key: PhantomData,
-            _paramater: PhantomData,
+            _animation_file: PhantomData,
             _collision: PhantomData,
+            _paramater: PhantomData,
         }
     }
 }
 
-impl<'a, 'b, ID, P, A, C, T> SystemBundle<'a, 'b> for FightGameBundle<ID, P, A, C, T>
+impl<'a, 'b, T, C, P> SystemBundle<'a, 'b> for FightGameBundle<T, C, P>
 where
-    ID: FileId,
-    P: AnimationKey,
-    A: AnimationKey,
+    T: AnimationFile + std::fmt::Debug,
     C: 'static + Send + Sync + CollisionData + CollisionFromData<Transform> + std::fmt::Debug,
-    T: 'static + Send + Sync + ParamaterFromData<AnimationParam>,
+    P: 'static + Send + Sync + ParamaterFromData<T::UserData>,
 {
     fn build(
         self,
@@ -64,7 +57,7 @@ where
             <FightInput as InputParser>::Event,
         >::default());
         world.insert(crate::resource::command::CommandStore::new());
-        builder.add(MoveSystem::<ID, P, A>::new(), "animation_move_system", &[]);
+        builder.add(MoveSystem::<T>::new(), "animation_move_system", &[]);
 
         builder.add(
             InputHandleSystem::<FightInput>::new(),
@@ -79,7 +72,7 @@ where
         );
 
         builder.add(
-            RegisterColliderSystem::<ID, P, A, C, T>::new(),
+            RegisterColliderSystem::<T, C, P>::new(),
             "register_collider_system",
             &[],
         );

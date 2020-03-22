@@ -1,6 +1,5 @@
 use crate::{
     components::Collisions,
-    paramater::AnimationParam,
     traits::{CollisionData, CollisionFromData, ParamaterFromData},
 };
 use amethyst::{
@@ -15,7 +14,7 @@ use amethyst::{
 use amethyst_sprite_studio::{
     components::{AnimationTime, PlayAnimationKey},
     resource::{data::AnimationData, AnimationStore},
-    traits::{AnimationKey, FileId},
+    traits::animation_file::AnimationFile,
 };
 use std::{
     collections::BTreeMap,
@@ -24,52 +23,45 @@ use std::{
 };
 
 #[derive(Debug)]
-enum RegisterError<P, A>
+enum RegisterError<T>
 where
-    P: AnimationKey,
-    A: AnimationKey,
+    T: AnimationFile,
 {
-    NotFoundPack(P),
-    NotFoundAnimation(A),
+    NotFoundPack(T::PackKey),
+    NotFoundAnimation(T::AnimationKey),
     EntryError(WrongGeneration),
 }
 
-pub struct RegisterColliderSystem<ID, P, A, C, T> {
-    _file_id: PhantomData<ID>,
-    _pack_id: PhantomData<P>,
-    _animation_id: PhantomData<A>,
+pub struct RegisterColliderSystem<T, C, P> {
+    _animation_file: PhantomData<T>,
     _paramater: PhantomData<C>,
-    _collision: PhantomData<T>,
+    _collision: PhantomData<P>,
 }
 
-impl<ID, P, A, C, T> RegisterColliderSystem<ID, P, A, C, T> {
+impl<T, C, P> RegisterColliderSystem<T, C, P> {
     pub fn new() -> Self {
         RegisterColliderSystem {
-            _file_id: PhantomData,
-            _pack_id: PhantomData,
-            _animation_id: PhantomData,
+            _animation_file: PhantomData,
             _paramater: PhantomData,
             _collision: PhantomData,
         }
     }
 }
 
-impl<'s, ID, P, A, C, T> System<'s> for RegisterColliderSystem<ID, P, A, C, T>
+impl<'s, T, C, P> System<'s> for RegisterColliderSystem<T, C, P>
 where
-    ID: FileId,
-    P: AnimationKey,
-    A: AnimationKey,
+    T: AnimationFile + std::fmt::Debug,
     C: 'static + Send + Sync + CollisionData + CollisionFromData<Transform> + std::fmt::Debug,
-    T: 'static + Send + Sync + ParamaterFromData<AnimationParam>,
+    P: 'static + Send + Sync + ParamaterFromData<T::UserData>,
 {
     type SystemData = (
         Entities<'s>,
-        Read<'s, AnimationStore<ID, AnimationParam, P, A>>,
-        Read<'s, AssetStorage<AnimationData<AnimationParam, P, A>>>,
-        ReadStorage<'s, PlayAnimationKey<ID, P, A>>,
+        Read<'s, AnimationStore<T>>,
+        Read<'s, AssetStorage<AnimationData<T>>>,
+        ReadStorage<'s, PlayAnimationKey<T>>,
         ReadStorage<'s, AnimationTime>,
         ReadStorage<'s, Transform>,
-        WriteStorage<'s, Collisions<C, T>>,
+        WriteStorage<'s, Collisions<C, P>>,
     );
 
     fn run(
@@ -77,7 +69,15 @@ where
         (entities, store, storage, keys, times, transforms, mut collisions): Self::SystemData,
     ) {
         for (e, key, time, transform) in (&*entities, &keys, &times, &transforms).join() {
-            match register_collision(e, key, time, transform, &mut collisions, &store, &storage) {
+            match register_collision::<T, _, _>(
+                e,
+                key,
+                time,
+                transform,
+                &mut collisions,
+                &store,
+                &storage,
+            ) {
                 Ok(()) => {}
                 Err(err) => log::error!("{:?}", err),
             }
@@ -85,21 +85,19 @@ where
     }
 }
 
-fn register_collision<C, T, ID, P, A>(
+fn register_collision<T, C, P>(
     e: Entity,
-    key: &PlayAnimationKey<ID, P, A>,
+    key: &PlayAnimationKey<T>,
     time: &AnimationTime,
     root_transform: &Transform,
-    collisions: &mut WriteStorage<Collisions<C, T>>,
-    animation_store: &Read<AnimationStore<ID, AnimationParam, P, A>>,
-    sprite_animation_storage: &Read<AssetStorage<AnimationData<AnimationParam, P, A>>>,
-) -> Result<(), RegisterError<P, A>>
+    collisions: &mut WriteStorage<Collisions<C, P>>,
+    animation_store: &Read<AnimationStore<T>>,
+    sprite_animation_storage: &Read<AssetStorage<AnimationData<T>>>,
+) -> Result<(), RegisterError<T>>
 where
+    T: AnimationFile + std::fmt::Debug,
     C: 'static + Send + Sync + CollisionData + CollisionFromData<Transform> + std::fmt::Debug,
-    T: 'static + Send + Sync + ParamaterFromData<AnimationParam>,
-    ID: FileId,
-    P: AnimationKey,
-    A: AnimationKey,
+    P: 'static + Send + Sync + ParamaterFromData<T::UserData>,
 {
     let registered_collision = collisions
         .entry(e)
@@ -151,15 +149,10 @@ where
         part_transform.concat(&animation.local_transform(part_id, frame));
 
         let user = animation.user(part_id, frame);
-        if let Some(AnimationParam {
-            collision_type: Some(_),
-            ..
-        }) = user
-        {
-            let c = C::make_collision(&part_transform);
-            // キーフレームから collisions に登録するデータを生成するトレイト
-            let data = T::make_collision_data(user.unwrap());
-
+        let c = C::make_collision(&part_transform);
+        // キーフレームから collisions に登録するデータを生成するトレイト
+        let data = P::make_collision_data(user);
+        if let Some(data) = data {
             log::trace!(
                 "register {:?}: {:?}, {:?}",
                 (pack_id, part_id),
