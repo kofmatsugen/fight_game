@@ -1,21 +1,17 @@
-use crate::paramater::AnimationParam;
-use amethyst::core::Transform;
-use amethyst::ecs::{Entity, ReadStorage};
-use amethyst_collision::traits::ContactEventParamater;
+use crate::{
+    paramater::{AnimationParam, CollisionType},
+    traits::ParamaterFromData,
+};
 
-#[derive(Debug)]
-pub struct CollisionParamater;
+#[derive(Clone, Copy, Debug)]
+pub struct CollisionParamater {
+    _collision_type: CollisionType,
+}
 
-impl<'a> ContactEventParamater<'a> for CollisionParamater {
-    type CollisionParamater = AnimationParam; // 衝突判定時のイベントを生成するためのパラメータ
-    type OptionParamater = (ReadStorage<'a, Transform>,); // 外部から渡されるパラメータ
+impl ParamaterFromData<AnimationParam> for CollisionParamater {
+    fn make_collision_data(param: Option<&AnimationParam>) -> Option<Self> {
+        let _collision_type = param?.collision_type?;
 
-    // 判定のパラメータとオプションのパラメータからイベントパラメータを生成
-    fn create_paramater(
-        _e: Entity,
-        _param: &Self::CollisionParamater,
-        (_transform,): &Self::OptionParamater,
-    ) -> Self {
-        CollisionParamater
+        Some(CollisionParamater { _collision_type })
     }
 }
