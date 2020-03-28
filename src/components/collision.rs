@@ -80,6 +80,12 @@ impl<C, T> Collisions<C, T> {
     }
 }
 
+impl<C, T> Default for Collisions<C, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<C, T> Collider for Collisions<C, T>
 where
     C: 'static + Sync + Send + CollisionData,

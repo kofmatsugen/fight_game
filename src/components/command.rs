@@ -29,3 +29,9 @@ impl ActiveCommand {
 impl Component for ActiveCommand {
     type Storage = DenseVecStorage<Self>;
 }
+
+impl Default for ActiveCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}

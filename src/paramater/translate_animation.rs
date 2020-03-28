@@ -1,6 +1,6 @@
 use crate::{
-    components::ActiveCommand,
-    id::{command, file, pack},
+    components::{ActiveCommand, SkillSet},
+    id::{file, pack},
     paramater::AnimationParam,
 };
 use amethyst::ecs::{Entity, ReadStorage};
@@ -16,7 +16,7 @@ type FightFileId = file::FileId;
 type FightPackKey = pack::PackKey;
 type FightAnimationKey = pack::AnimationKey;
 type FightUserData = AnimationParam;
-type FightOptionalData<'s> = (ReadStorage<'s, ActiveCommand>,);
+type FightOptionalData<'s> = (ReadStorage<'s, ActiveCommand>, ReadStorage<'s, SkillSet>);
 impl AnimationFile for FightTranslation {
     type FileId = FightFileId;
     type PackKey = FightPackKey;
@@ -40,145 +40,51 @@ impl<'s> TranslateAnimation<'s> for FightTranslation {
         rest_time: f32,
         pack_anim_key: (&Self::PackKey, &Self::AnimationKey),
         user: Option<&Self::UserData>,
-        optional: &Self::OptionalData,
+        (active_commands, skill_sets): &Self::OptionalData,
     ) -> Option<(Self::PackKey, Self::AnimationKey, usize)> {
-        if rest_time >= 0. {
-            on_during_animation(entity, pack_anim_key, user, optional)
+        let active = active_commands.get(entity)?;
+        let skill_set = skill_sets.get(entity)?;
+        let next = if rest_time >= 0. {
+            on_during_animation(pack_anim_key, user, active, skill_set)
         } else {
-            Some(on_finish_animation(entity, pack_anim_key, user, optional))
-        }
+            on_finish_animation(pack_anim_key, user, active, skill_set)
+        };
+        log::info!("=> {:?}", next);
+        next
     }
 }
 // アニメーション中遷移判定
 fn on_during_animation(
-    e: Entity,
     (&current_pack, current_anim): (&FightPackKey, &FightAnimationKey),
     _user: Option<&FightUserData>,
-    (active_commands,): &FightOptionalData,
+    active: &ActiveCommand,
+    skill_set: &SkillSet,
 ) -> Option<(FightPackKey, FightAnimationKey, usize)> {
-    // 終了したら基本初期に戻る
-    let active_command = active_commands.get(e)?;
-
     // とりあえずenum値的に最大値を優先する
     // 遷移ルールも含めて最終的にはデータ側に移動したい
-    let next = match active_command.active_commands().max() {
-        Some(command::Command::Back) => None,
-        Some(command::Command::Walk) => {
-            if current_anim == &pack::AnimationKey::Run {
-                None
-            } else {
-                None
-            }
-        }
-        Some(command::Command::BackDash) => None,
-        Some(command::Command::Dash) => Some(pack::AnimationKey::Run),
-        Some(command::Command::VerticalJump) => None,
-        Some(command::Command::BackJump) => None,
-        Some(command::Command::FrontJump) => None,
-        Some(command::Command::Crouch) => {
-            if current_anim == &pack::AnimationKey::Sit
-                || current_anim == &pack::AnimationKey::Sitdown
-            {
-                Some(pack::AnimationKey::Sit)
-            } else {
-                Some(pack::AnimationKey::Sitdown)
-            }
-        }
-        Some(command::Command::BackCrouch) => {
-            if current_anim == &pack::AnimationKey::Sit
-                || current_anim == &pack::AnimationKey::Sitdown
-            {
-                Some(pack::AnimationKey::Sit)
-            } else {
-                Some(pack::AnimationKey::Sitdown)
-            }
-        }
-        Some(command::Command::FrontCrouch) => {
-            if current_anim == &pack::AnimationKey::Sit
-                || current_anim == &pack::AnimationKey::Sitdown
-            {
-                Some(pack::AnimationKey::Sit)
-            } else {
-                Some(pack::AnimationKey::Sitdown)
-            }
-        }
-        Some(command::Command::A) => Some(pack::AnimationKey::Punch1),
-        Some(command::Command::B) => Some(pack::AnimationKey::Kick1),
-        Some(command::Command::C) => Some(pack::AnimationKey::Punch2),
-        Some(command::Command::D) => Some(pack::AnimationKey::Kick2),
-        None => None,
-    }?;
-
-    if &next == current_anim {
+    let command = active.active_commands().max()?;
+    let skill = skill_set.command_skill(command)?;
+    if skill == current_anim {
         None
     } else {
-        Some((current_pack, next, 0))
+        Some((current_pack, *skill, 0))
     }
 }
 
 // アニメーション終了時遷移判定
 fn on_finish_animation(
-    e: Entity,
-    (&current_pack, current_anim): (&FightPackKey, &FightAnimationKey),
+    (&current_pack, _current_anim): (&FightPackKey, &FightAnimationKey),
     _user: Option<&FightUserData>,
-    (active_commands,): &FightOptionalData,
-) -> (FightPackKey, FightAnimationKey, usize) {
-    // 終了したら基本初期に戻る
-    let active_command = active_commands.get(e);
-
+    active: &ActiveCommand,
+    skill_set: &SkillSet,
+) -> Option<(FightPackKey, FightAnimationKey, usize)> {
     // とりあえずenum値的に最大値を優先する
     // 遷移ルールも含めて最終的にはデータ側に移動したい
-    let next = active_command
-        .and_then(|c| match c.active_commands().max() {
-            Some(command::Command::Back) => None,
-            Some(command::Command::Walk) => {
-                if current_anim == &pack::AnimationKey::Run {
-                    Some(pack::AnimationKey::Run)
-                } else {
-                    Some(pack::AnimationKey::Walk)
-                }
-            }
-            Some(command::Command::BackDash) => None,
-            Some(command::Command::Dash) => Some(pack::AnimationKey::Run),
-            Some(command::Command::VerticalJump) => None,
-            Some(command::Command::BackJump) => None,
-            Some(command::Command::FrontJump) => None,
-            Some(command::Command::Crouch) => {
-                if current_anim == &pack::AnimationKey::Sit
-                    || current_anim == &pack::AnimationKey::Sitdown
-                {
-                    Some(pack::AnimationKey::Sit)
-                } else {
-                    Some(pack::AnimationKey::Sitdown)
-                }
-            }
-            Some(command::Command::BackCrouch) => {
-                if current_anim == &pack::AnimationKey::Sit
-                    || current_anim == &pack::AnimationKey::Sitdown
-                {
-                    Some(pack::AnimationKey::Sit)
-                } else {
-                    Some(pack::AnimationKey::Sitdown)
-                }
-            }
-            Some(command::Command::FrontCrouch) => {
-                if current_anim == &pack::AnimationKey::Sit
-                    || current_anim == &pack::AnimationKey::Sitdown
-                {
-                    Some(pack::AnimationKey::Sit)
-                } else {
-                    Some(pack::AnimationKey::Sitdown)
-                }
-            }
-            Some(command::Command::A) => Some(pack::AnimationKey::Punch1),
-            Some(command::Command::B) => Some(pack::AnimationKey::Kick1),
-            Some(command::Command::C) => Some(pack::AnimationKey::Punch2),
-            Some(command::Command::D) => Some(pack::AnimationKey::Kick2),
-            None => None,
-        })
-        .unwrap_or(pack::AnimationKey::Stance);
-
-    (current_pack, next, 0)
+    let command = active.active_commands().max();
+    let skill = command
+        .and_then(|command| skill_set.command_skill(command))
+        .unwrap_or(skill_set.neutral_skill());
+    Some((current_pack, *skill, 0))
 }
 
 lazy_static::lazy_static! {
