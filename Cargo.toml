@@ -22,4 +22,4 @@ bitflags= "1.2.1"
 [features]
 default=[]
 serialize=[]
-debug=[]
+debug=["amethyst-collision/debug"]
