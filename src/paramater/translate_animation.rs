@@ -49,20 +49,26 @@ impl<'s> TranslateAnimation<'s> for FightTranslation {
         } else {
             on_finish_animation(pack_anim_key, user, active, skill_set)
         };
-        log::info!("=> {:?}", next);
+        log::trace!("=> {:?}", next);
         next
     }
 }
 // アニメーション中遷移判定
+// 遷移ルールも含めて最終的にはデータ側に移動したい
 fn on_during_animation(
     (&current_pack, current_anim): (&FightPackKey, &FightAnimationKey),
-    _user: Option<&FightUserData>,
+    user: Option<&FightUserData>,
     active: &ActiveCommand,
     skill_set: &SkillSet,
 ) -> Option<(FightPackKey, FightAnimationKey, usize)> {
     // とりあえずenum値的に最大値を優先する
-    // 遷移ルールも含めて最終的にはデータ側に移動したい
     let command = active.active_commands().max()?;
+    // 行動中はそのアニメーションパラメータ内のキャンセルフラグで判定
+    if user?.cancel.is_cancelable(command) == false {
+        return None;
+    }
+    log::debug!("canceled: {:?}", command);
+
     let skill = skill_set.command_skill(command)?;
     if skill == current_anim {
         None

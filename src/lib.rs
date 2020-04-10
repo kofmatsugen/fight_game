@@ -1,6 +1,7 @@
 pub mod binding;
 pub mod bundle;
 pub mod components;
+pub mod flag;
 pub mod id;
 pub mod input;
 pub mod load;
