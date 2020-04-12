@@ -19,7 +19,13 @@ log= "0.4.8"
 failure= "0.1.7"
 bitflags= "1.2.1"
 
+thread_profiler={version="0.3.0", optional = true}
+
 [features]
 default=[]
 serialize=[]
+profiler=[
+    "amethyst/profiler",
+    "thread_profiler"
+    ]
 debug=["amethyst-collision/debug"]
