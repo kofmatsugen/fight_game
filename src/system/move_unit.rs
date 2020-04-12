@@ -37,6 +37,8 @@ where
     );
 
     fn run(&mut self, (store, storage, keys, times, mut transforms): Self::SystemData) {
+        #[cfg(feature = "profiler")]
+        thread_profiler::profile_scope!("move_unit");
         for (key, time, transform) in (&keys, &times, &mut transforms).join() {
             move_transform(key, time, transform, &store, &storage);
         }

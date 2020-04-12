@@ -23,6 +23,8 @@ impl<'s> System<'s> for ExtrudeSystem {
     type SystemData = (WriteStorage<'s, Transform>, Write<'s, EventChannel>);
 
     fn run(&mut self, (mut transforms, mut channel): Self::SystemData) {
+        #[cfg(feature = "profiler")]
+        thread_profiler::profile_scope!("extrude");
         if self.reader.is_none() == true {
             self.reader = channel.register_reader().into();
         }
@@ -45,7 +47,7 @@ impl<'s> System<'s> for ExtrudeSystem {
         {
             // 格ゲーでは押し出し判定は横方向のみ
             let extrude_length = normal.x * depth / 2.;
-            log::info!("extrude: {}", extrude_length);
+            log::info!("extrude: {} ({:?}, {:?})", extrude_length, entity1, entity2);
             extrude(&mut transforms, *entity1, -extrude_length);
             extrude(&mut transforms, *entity2, extrude_length);
         }

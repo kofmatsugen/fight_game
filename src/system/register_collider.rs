@@ -68,6 +68,8 @@ where
         &mut self,
         (entities, store, storage, keys, times, transforms, mut collisions): Self::SystemData,
     ) {
+        #[cfg(feature = "profiler")]
+        thread_profiler::profile_scope!("register_collider");
         for (e, key, time, transform) in (&*entities, &keys, &times, &transforms).join() {
             match register_collision::<T, _, _>(
                 e,

@@ -30,6 +30,8 @@ impl<'a, 's> System<'s> for CommandActivateSystem<'a> {
     fn run(&mut self, data: Self::SystemData) {
         let (channel, mut active_commands) = data;
 
+        #[cfg(feature = "profiler")]
+        thread_profiler::profile_scope!("command_activate");
         // 一旦前フレームで有効化されたコマンドを破棄する
         for active in (&mut active_commands).join() {
             active.clear();

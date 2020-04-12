@@ -16,6 +16,8 @@ impl<'s> System<'s> for DirectionSystem {
     type SystemData = (WriteStorage<'s, Transform>, ReadStorage<'s, Direction>);
 
     fn run(&mut self, (mut transforms, direction): Self::SystemData) {
+        #[cfg(feature = "profiler")]
+        thread_profiler::profile_scope!("direction");
         for (dir, transform) in (&direction, &mut transforms).join() {
             let scale = transform.scale();
             // アニメーションのデフォルトは左向き
