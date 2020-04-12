@@ -4,8 +4,8 @@ use crate::{
     input::FightInput,
     resource::command::CommandList,
     system::{
-        command_activate::CommandActivateSystem, move_unit::MoveSystem,
-        register_collider::RegisterColliderSystem,
+        command_activate::CommandActivateSystem, direction::DirectionSystem,
+        extrude::ExtrudeSystem, move_unit::MoveSystem, register_collider::RegisterColliderSystem,
     },
     traits::{CollisionData, CollisionFromData, ParamaterFromData},
 };
@@ -76,6 +76,10 @@ where
             "register_collider_system",
             &[],
         );
+
+        builder.add(DirectionSystem::new(), "direction_system", &[]);
+
+        builder.add(ExtrudeSystem::new(), "extrude_system", &["detect_contact"]);
 
         #[cfg(feature = "debug")]
         builder.add(

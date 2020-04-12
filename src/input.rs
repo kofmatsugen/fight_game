@@ -44,8 +44,16 @@ impl<'s> InputParser<'s> for FightInput {
     ) -> Self::InputSignal {
         let mut signal = BTreeMap::default();
 
-        let player1 = make_signal(handler, prev_input.and_then(|s| s.get(&PlayerTag::P1)));
-        let player2 = make_signal(handler, prev_input.and_then(|s| s.get(&PlayerTag::P2)));
+        let player1 = make_signal(
+            handler,
+            PlayerTag::P1,
+            prev_input.and_then(|s| s.get(&PlayerTag::P1)),
+        );
+        let player2 = make_signal(
+            handler,
+            PlayerTag::P2,
+            prev_input.and_then(|s| s.get(&PlayerTag::P2)),
+        );
 
         signal.insert(PlayerTag::P1, player1);
         signal.insert(PlayerTag::P2, player2);
@@ -175,26 +183,27 @@ fn convert_command_input(signal: &InputSignal, direction: &Direction) -> Key {
 
 fn make_signal(
     handler: &InputHandler<<FightInput as InputParser>::BindingTypes>,
+    tag: PlayerTag,
     prev_input: Option<&InputSignal>,
 ) -> InputSignal {
     let mut signal = InputSignal::default();
 
-    if let Some(true) = handler.action_is_down(&Action::A(PlayerTag::P1)) {
+    if let Some(true) = handler.action_is_down(&Action::A(tag)) {
         signal.is_down |= InputFlag::A;
     }
-    if let Some(true) = handler.action_is_down(&Action::B(PlayerTag::P1)) {
+    if let Some(true) = handler.action_is_down(&Action::B(tag)) {
         signal.is_down |= InputFlag::B;
     }
-    if let Some(true) = handler.action_is_down(&Action::C(PlayerTag::P1)) {
+    if let Some(true) = handler.action_is_down(&Action::C(tag)) {
         signal.is_down |= InputFlag::C;
     }
-    if let Some(true) = handler.action_is_down(&Action::D(PlayerTag::P1)) {
+    if let Some(true) = handler.action_is_down(&Action::D(tag)) {
         signal.is_down |= InputFlag::D;
     }
 
     match (
-        handler.axis_value(&Axis::Right(PlayerTag::P1)),
-        handler.axis_value(&Axis::Up(PlayerTag::P1)),
+        handler.axis_value(&Axis::Right(tag)),
+        handler.axis_value(&Axis::Up(tag)),
     ) {
         (Some(lr), Some(ud)) => {
             if ud > AXIS_THRESHOLD && lr > AXIS_THRESHOLD {

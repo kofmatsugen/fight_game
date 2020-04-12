@@ -7,7 +7,7 @@ use amethyst_collision::traits::debug::collision_color::CollisionColor;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CollisionParamater {
-    collision_type: CollisionType,
+    pub collision_type: CollisionType,
 }
 
 impl ParamaterFromData<AnimationParam> for CollisionParamater {
@@ -23,8 +23,8 @@ impl CollisionColor for CollisionParamater {
     fn collision_color(&self) -> (f32, f32, f32, f32) {
         match self.collision_type {
             CollisionType::Extrusion => (1., 0., 1., 1.),
-            CollisionType::Blow => (1., 0., 0., 1.),
-            CollisionType::Projectile => (0., 1., 0., 1.),
+            CollisionType::Blow { .. } => (1., 0., 0., 1.),
+            CollisionType::Projectile { .. } => (0., 1., 0., 1.),
             CollisionType::Throw => (0., 0., 1., 1.),
         }
     }
