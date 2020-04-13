@@ -46,7 +46,7 @@ impl<'s> System<'s> for ExtrudeSystem {
                 })
         {
             // 格ゲーでは押し出し判定は横方向のみ
-            let extrude_length = normal.x * depth / 2.;
+            let extrude_length = normal.x * depth;
             log::info!("extrude: {} ({:?}, {:?})", extrude_length, entity1, entity2);
             extrude(&mut transforms, *entity1, -extrude_length);
             extrude(&mut transforms, *entity2, extrude_length);

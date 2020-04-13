@@ -29,6 +29,7 @@ where
 {
     NotFoundPack(T::PackKey),
     NotFoundAnimation(T::AnimationKey),
+    NotSetAnimation,
     EntryError(WrongGeneration),
 }
 
@@ -105,13 +106,8 @@ where
         .entry(e)
         .map_err(|err| RegisterError::EntryError(err))?
         .or_insert(Collisions::new());
-    let (id, &pack_id, &animation_id) = match (key.file_id(), key.pack_name(), key.animation_name())
-    {
-        (id, Some(pack), Some(anim)) => (id, pack, anim),
-        _ => {
-            return Ok(());
-        }
-    };
+    let (id, &pack_id, &animation_id) = key.play_key().ok_or(RegisterError::NotSetAnimation)?;
+
     let pack = animation_store
         .get_animation_handle(id)
         .and_then(|handle| sprite_animation_storage.get(handle))

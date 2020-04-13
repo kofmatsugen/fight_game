@@ -55,11 +55,7 @@ fn move_transform<T>(
 where
     T: AnimationFile,
 {
-    let (id, &pack_id, &animation_id) = match (key.file_id(), key.pack_name(), key.animation_name())
-    {
-        (id, Some(pack), Some(anim)) => Some((id, pack, anim)),
-        _ => None,
-    }?;
+    let (id, &pack_id, &animation_id) = key.play_key()?;
 
     let pack = animation_store
         .get_animation_handle(id)
