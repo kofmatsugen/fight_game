@@ -1,26 +1,37 @@
-use crate::paramater::{CollisionType, ContactParamter};
 use amethyst::core::{
     components::Transform,
     ecs::{Entity, ReaderId, System, Write, WriteStorage},
 };
-use amethyst_collision::events::{ContactEvent, ContactEvents};
-
-type EventChannel = ContactEvents<ContactParamter>;
-type Event = ContactEvent<ContactParamter>;
+use amethyst_aabb::{
+    event::{ContactEvent, ContactEventChannel},
+    types::{Contact, Vector},
+};
 
 // 押出処理
-pub struct ExtrudeSystem {
-    reader: Option<ReaderId<Event>>,
+pub struct ExtrudeSystem<T>
+where
+    T: 'static + Send + Sync,
+{
+    reader: Option<ReaderId<ContactEvent<T>>>,
 }
 
-impl ExtrudeSystem {
+impl<T> ExtrudeSystem<T>
+where
+    T: 'static + Send + Sync,
+{
     pub fn new() -> Self {
         ExtrudeSystem { reader: None }
     }
 }
 
-impl<'s> System<'s> for ExtrudeSystem {
-    type SystemData = (WriteStorage<'s, Transform>, Write<'s, EventChannel>);
+impl<'s, T> System<'s> for ExtrudeSystem<T>
+where
+    T: 'static + Send + Sync,
+{
+    type SystemData = (
+        WriteStorage<'s, Transform>,
+        Write<'s, ContactEventChannel<T>>,
+    );
 
     fn run(&mut self, (mut transforms, mut channel): Self::SystemData) {
         #[cfg(feature = "profiler")]
@@ -29,33 +40,47 @@ impl<'s> System<'s> for ExtrudeSystem {
             self.reader = channel.register_reader().into();
         }
 
-        for Event {
+        for &ContactEvent {
             entity1,
             entity2,
-            normal,
-            depth,
+            contact:
+                Contact {
+                    depth,
+                    normal,
+                    world1,
+                    world2,
+                },
             ..
-        } in
-            channel
-                .read(self.reader.as_mut().unwrap())
-                .filter(|Event { args1, args2, .. }| {
-                    match (&args1.collision_type, &args2.collision_type) {
-                        (CollisionType::Extrusion, CollisionType::Extrusion) => true,
-                        _ => false,
-                    }
-                })
+        } in channel.read(self.reader.as_mut().unwrap())
         {
             // 格ゲーでは押し出し判定は横方向のみ
-            let extrude_length = normal.x * depth;
-            log::info!("extrude: {} ({:?}, {:?})", extrude_length, entity1, entity2);
-            extrude(&mut transforms, *entity1, -extrude_length);
-            extrude(&mut transforms, *entity2, extrude_length);
+            let extrude_length = normal.into_inner() * depth;
+            log::info!(
+                "extrude: normal = [{}, {}] depth = {}",
+                normal.x,
+                normal.y,
+                depth,
+            );
+            log::info!(
+                "extrude: point1 = ({}, {}), point2 = ({}, {})",
+                world1.x,
+                world1.y,
+                world2.x,
+                world2.y,
+            );
+            extrude(&mut transforms, entity1, -extrude_length);
+            extrude(&mut transforms, entity2, extrude_length);
         }
     }
 }
 
-fn extrude(transforms: &mut WriteStorage<Transform>, e: Entity, extrude_length: f32) -> Option<()> {
+fn extrude(
+    transforms: &mut WriteStorage<Transform>,
+    e: Entity,
+    extrude_length: Vector,
+) -> Option<()> {
     let transform = transforms.get_mut(e)?;
-    transform.translation_mut().x += extrude_length;
+    transform.translation_mut().x += extrude_length.x;
+    transform.translation_mut().y += extrude_length.y;
     Some(())
 }

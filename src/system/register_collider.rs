@@ -1,16 +1,12 @@
-use crate::{
-    components::Collisions,
-    traits::{CollisionData, CollisionFromData, ParamaterFromData},
-};
+use crate::traits::ParamaterFromData;
 use amethyst::{
     assets::AssetStorage,
-    core::{
-        components::Transform,
-        ecs::{
-            error::WrongGeneration, Entities, Entity, Join, Read, ReadStorage, System, WriteStorage,
-        },
+    core::Transform,
+    ecs::{
+        error::WrongGeneration, Entities, Entity, Join, Read, ReadStorage, System, WriteStorage,
     },
 };
+use amethyst_aabb::Collisions;
 use amethyst_sprite_studio::{
     components::{AnimationTime, PlayAnimationKey},
     resource::{data::AnimationData, AnimationStore},
@@ -33,26 +29,23 @@ where
     EntryError(WrongGeneration),
 }
 
-pub struct RegisterColliderSystem<T, C, P> {
+pub struct RegisterColliderSystem<T, P> {
     _animation_file: PhantomData<T>,
-    _paramater: PhantomData<C>,
-    _collision: PhantomData<P>,
+    _paramater: PhantomData<P>,
 }
 
-impl<T, C, P> RegisterColliderSystem<T, C, P> {
+impl<T, P> RegisterColliderSystem<T, P> {
     pub fn new() -> Self {
         RegisterColliderSystem {
             _animation_file: PhantomData,
             _paramater: PhantomData,
-            _collision: PhantomData,
         }
     }
 }
 
-impl<'s, T, C, P> System<'s> for RegisterColliderSystem<T, C, P>
+impl<'s, T, P> System<'s> for RegisterColliderSystem<T, P>
 where
     T: AnimationFile + std::fmt::Debug,
-    C: 'static + Send + Sync + CollisionData + CollisionFromData<Transform> + std::fmt::Debug,
     P: 'static + Send + Sync + ParamaterFromData<T::UserData>,
 {
     type SystemData = (
@@ -61,22 +54,26 @@ where
         Read<'s, AssetStorage<AnimationData<T>>>,
         ReadStorage<'s, PlayAnimationKey<T>>,
         ReadStorage<'s, AnimationTime>,
+        WriteStorage<'s, Collisions<P>>,
         ReadStorage<'s, Transform>,
-        WriteStorage<'s, Collisions<C, P>>,
     );
 
     fn run(
         &mut self,
-        (entities, store, storage, keys, times, transforms, mut collisions): Self::SystemData,
+        (entities, store, storage, keys, times, mut collisions, transforms): Self::SystemData,
     ) {
         #[cfg(feature = "profiler")]
         thread_profiler::profile_scope!("register_collider");
+        let start = std::time::Instant::now();
         for (e, key, time, transform) in (&*entities, &keys, &times, &transforms).join() {
-            match register_collision::<T, _, _>(
+            let scale = transform.scale();
+            let mut root_scale_transform = Transform::default();
+            root_scale_transform.set_scale(*scale);
+            match register_collision::<T, _>(
                 e,
                 key,
                 time,
-                transform,
+                &root_scale_transform,
                 &mut collisions,
                 &store,
                 &storage,
@@ -85,38 +82,42 @@ where
                 Err(err) => log::error!("{:?}", err),
             }
         }
+        let end = start.elapsed();
+        log::error!("register_collider = {} ms", end.as_millis());
     }
 }
 
-fn register_collision<T, C, P>(
+fn register_collision<T, P>(
     e: Entity,
     key: &PlayAnimationKey<T>,
     time: &AnimationTime,
-    root_transform: &Transform,
-    collisions: &mut WriteStorage<Collisions<C, P>>,
+    root_scale_transform: &Transform,
+    collisions: &mut WriteStorage<Collisions<P>>,
     animation_store: &Read<AnimationStore<T>>,
     sprite_animation_storage: &Read<AssetStorage<AnimationData<T>>>,
 ) -> Result<(), RegisterError<T>>
 where
     T: AnimationFile + std::fmt::Debug,
-    C: 'static + Send + Sync + CollisionData + CollisionFromData<Transform> + std::fmt::Debug,
     P: 'static + Send + Sync + ParamaterFromData<T::UserData>,
 {
     let registered_collision = collisions
         .entry(e)
         .map_err(|err| RegisterError::EntryError(err))?
         .or_insert(Collisions::new());
-    let (id, &pack_id, &animation_id) = key.play_key().ok_or(RegisterError::NotSetAnimation)?;
+    // 新規に登録し直すので既存のものは削除
+    registered_collision.clear();
+
+    let (id, pack_id, animation_id) = key.play_key().ok_or(RegisterError::NotSetAnimation)?;
 
     let pack = animation_store
         .get_animation_handle(id)
         .and_then(|handle| sprite_animation_storage.get(handle))
-        .and_then(|data| data.pack(&pack_id))
-        .ok_or(RegisterError::NotFoundPack(pack_id))?;
+        .and_then(|data| data.pack(pack_id))
+        .ok_or(RegisterError::NotFoundPack(*pack_id))?;
 
     let animation = pack
-        .animation(&animation_id)
-        .ok_or(RegisterError::NotFoundAnimation(animation_id))?;
+        .animation(animation_id)
+        .ok_or(RegisterError::NotFoundAnimation(*animation_id))?;
     let frame = animation.sec_to_frame(time.current_time());
     let mut global_transforms = BTreeMap::new();
     pack.parts().enumerate().for_each(|(part_id, part)| {
@@ -142,35 +143,27 @@ where
                 };
                 global_transforms.get(&hash_key)
             })
-            .unwrap_or(root_transform)
+            .unwrap_or(root_scale_transform)
             .clone();
         part_transform.concat(&animation.local_transform(part_id, frame));
 
         let user = animation.user(part_id, frame);
-        let c = C::make_collision(&part_transform);
         // キーフレームから collisions に登録するデータを生成するトレイト
-        let data = P::make_collision_data(user);
-        if let Some(data) = data {
+        if let Some(data) = P::make_collision_data(user) {
             log::trace!(
-                "register {:?}: {:?}, {:?}",
+                "register {:?}: {:?}",
                 (pack_id, part_id),
-                c,
                 part_transform.translation()
             );
-            registered_collision.update_collision(
-                (pack_id, part_id),
+            registered_collision.add_aabb(
+                (
+                    part_transform.translation().x,
+                    part_transform.translation().y,
+                ),
+                part_transform.scale().x,
+                part_transform.scale().y,
                 data,
-                c,
-                part_transform.clone(),
             );
-        } else {
-            // 判定データがないので削除
-            match registered_collision.remove_collision((pack_id, part_id)) {
-                Some((id, handle)) => {
-                    log::trace!("remove collision {:?}, {:?}", id, handle);
-                }
-                None => {}
-            }
         }
 
         // 今のIDで位置を登録しておき，次の子パーツの座標計算に利用する

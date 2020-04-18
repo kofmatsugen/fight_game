@@ -3,7 +3,7 @@ use crate::{
     traits::ParamaterFromData,
 };
 #[cfg(feature = "debug")]
-use amethyst_collision::traits::debug::collision_color::CollisionColor;
+use amethyst_aabb::debug::traits::CollisionColor;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CollisionParamater {

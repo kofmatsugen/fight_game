@@ -8,13 +8,12 @@ edition = "2018"
 
 [dependencies]
 lazy_static= "1.4.0"
-amethyst-sprite-studio={path = "../amethyst-sprite-studio/"}
-amethyst-collision={path="../amethyst-collision/"}
 amethyst = {git = "https://github.com/amethyst/amethyst.git", features = ["vulkan"] }
+amethyst-sprite-studio={path = "../amethyst-sprite-studio/"}
+amethyst-aabb={path="../amethyst-aabb/"}
 input-handle={path="../input-handle/"}
 command-parser={path="../command-parser/"}
 serde= "1.0.105"
-ncollide2d= "~0.21.0"
 log= "0.4.8"
 failure= "0.1.7"
 bitflags= "1.2.1"
@@ -28,4 +27,4 @@ profiler=[
     "amethyst/profiler",
     "thread_profiler"
     ]
-debug=["amethyst-collision/debug"]
+debug=["amethyst-aabb/debug"]
