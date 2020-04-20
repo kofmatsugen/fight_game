@@ -68,8 +68,6 @@ where
             &["fight_input_system"],
         );
 
-        builder.add_thread_local(RegisterColliderSystem::<T, P>::new());
-
         builder.add(DirectionSystem::new(), "direction_system", &[]);
 
         builder.add(ExtrudeSystem::<P>::new(), "extrude_system", &[]);
@@ -85,6 +83,12 @@ where
         builder.add(
             debug::command::CommandDebugSystem::new(world),
             "command_debug_system",
+            &[],
+        );
+
+        builder.add(
+            RegisterColliderSystem::<T, P>::new(),
+            "register_collider",
             &[],
         );
 

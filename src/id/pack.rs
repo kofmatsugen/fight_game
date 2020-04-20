@@ -15,6 +15,8 @@ pub enum Error {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PackKey {
+    SpriteStudioSplashInstance,
+    SpriteStudioSplash,
     Base,
 }
 
@@ -23,6 +25,8 @@ impl FromStr for PackKey {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "splash1024_instance" => Ok(PackKey::SpriteStudioSplashInstance),
+            "splash1024" => Ok(PackKey::SpriteStudioSplash),
             "sample" => Ok(PackKey::Base),
             _ => Err(Error::UnknownPackName(s.into())),
         }
@@ -45,6 +49,11 @@ pub enum AnimationKey {
     Punch2,
     Sitdown,
     Standup,
+
+    // SpriteStudio の スプラッシュアニメーション用
+    SplashIn,
+    SplashOut,
+    SplashInOut,
 }
 
 #[cfg(feature = "serialize")]
@@ -65,6 +74,9 @@ impl FromStr for AnimationKey {
             "0010_punch2" => Ok(AnimationKey::Punch2),
             "0011_sitdown" => Ok(AnimationKey::Sitdown),
             "0012_standup" => Ok(AnimationKey::Standup),
+            "in" => Ok(AnimationKey::SplashIn),
+            "out" => Ok(AnimationKey::SplashOut),
+            "inout" => Ok(AnimationKey::SplashInOut),
             _ => Err(Error::UnknownAnimationName(s.into())),
         }
     }
