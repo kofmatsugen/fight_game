@@ -96,7 +96,6 @@ fn on_finish_animation(
 lazy_static::lazy_static! {
     static ref FILE_LIST: BTreeMap<file::FileId, (&'static str, usize)> = {
         let mut list = BTreeMap::new();
-        list.insert(file::FileId::SpriteStudioSplash, ("splash1024", 1));
         list.insert(file::FileId::Sample, ("sample", 1));
         list
     };
