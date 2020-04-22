@@ -26,6 +26,7 @@ impl CollisionColor for CollisionParamater {
             CollisionType::Blow { .. } => (1., 0., 0., 1.),
             CollisionType::Projectile { .. } => (0., 1., 0., 1.),
             CollisionType::Throw => (0., 0., 1., 1.),
+            CollisionType::Damaged => (1., 1., 0., 1.),
         }
     }
 }

@@ -16,6 +16,7 @@ pub enum CollisionType {
         ground: BlowInfo, // 地上ヒット時
     },
     Throw,
+    Damaged, // 被ダメージ
 }
 
 // 攻撃ヒット時の硬直情報
