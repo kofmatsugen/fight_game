@@ -3,6 +3,7 @@ use amethyst::core::{
     components::Transform,
     ecs::{Join, ReadStorage, System, WriteStorage},
 };
+use movement_transform::components::Movement;
 
 pub struct DirectionSystem;
 
@@ -13,20 +14,34 @@ impl DirectionSystem {
 }
 
 impl<'s> System<'s> for DirectionSystem {
-    type SystemData = (WriteStorage<'s, Transform>, ReadStorage<'s, Direction>);
+    type SystemData = (
+        ReadStorage<'s, Transform>,
+        ReadStorage<'s, Direction>,
+        WriteStorage<'s, Movement>,
+    );
 
-    fn run(&mut self, (mut transforms, direction): Self::SystemData) {
+    fn run(&mut self, (transforms, direction, mut movements): Self::SystemData) {
         #[cfg(feature = "profiler")]
         thread_profiler::profile_scope!("direction");
-        for (dir, transform) in (&direction, &mut transforms).join() {
+        for (dir, transform, movement) in (&direction, &transforms, &mut movements).join() {
             let scale = transform.scale();
-            // アニメーションのデフォルトは左向き
-            let dir_x = match dir {
-                Direction::Right => f32::abs(scale.x) * -1.,
-                Direction::Left => f32::abs(scale.x),
-            };
 
-            transform.scale_mut().x = dir_x;
+            // 左をデフォルトとして，現在のスケール値と合わせて左のときの正の値に変換する
+            let current_dir_scale = scale.x.signum() * movement.transform().scale().x.signum();
+            match dir {
+                Direction::Right => {
+                    // 右向きなので負の値ならそのまま，正の数なら反転
+                    if current_dir_scale > 0. {
+                        movement.transform_mut().scale_mut().x *= -1.;
+                    }
+                }
+                Direction::Left => {
+                    // 左向きなので正の値ならそのまま，正の数なら反転
+                    if current_dir_scale < 0. {
+                        movement.transform_mut().scale_mut().x *= -1.;
+                    }
+                }
+            }
         }
     }
 }

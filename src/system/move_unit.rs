@@ -1,15 +1,13 @@
 use amethyst::{
     assets::AssetStorage,
-    core::{
-        components::Transform,
-        ecs::{Join, Read, ReadStorage, System, WriteStorage},
-    },
+    core::ecs::{Join, Read, ReadStorage, System, WriteStorage},
 };
 use amethyst_sprite_studio::{
     components::{AnimationTime, PlayAnimationKey},
     resource::{data::AnimationData, AnimationStore},
     traits::animation_file::AnimationFile,
 };
+use movement_transform::components::Movement;
 use std::marker::PhantomData;
 
 pub struct MoveSystem<T> {
@@ -33,14 +31,14 @@ where
         Read<'s, AssetStorage<AnimationData<T>>>,
         ReadStorage<'s, PlayAnimationKey<T>>,
         ReadStorage<'s, AnimationTime>,
-        WriteStorage<'s, Transform>,
+        WriteStorage<'s, Movement>,
     );
 
-    fn run(&mut self, (store, storage, keys, times, mut transforms): Self::SystemData) {
+    fn run(&mut self, (store, storage, keys, times, mut movements): Self::SystemData) {
         #[cfg(feature = "profiler")]
         thread_profiler::profile_scope!("move_unit");
-        for (key, time, transform) in (&keys, &times, &mut transforms).join() {
-            move_transform(key, time, transform, &store, &storage);
+        for (key, time, movement) in (&keys, &times, &mut movements).join() {
+            move_transform(key, time, movement, &store, &storage);
         }
     }
 }
@@ -48,7 +46,7 @@ where
 fn move_transform<T>(
     key: &PlayAnimationKey<T>,
     time: &AnimationTime,
-    _transform: &mut Transform,
+    _movement: &mut Movement,
     animation_store: &AnimationStore<T>,
     sprite_animation_storage: &AssetStorage<AnimationData<T>>,
 ) -> Option<()>
