@@ -13,7 +13,7 @@ impl<'s> PairFilter<'s> for CollisionParamater {
         p2: &Self,
         _data: &Self::SystemData,
     ) -> bool {
-        match (p1.collision_type, p2.collision_type) {
+        let filter = match (p1.collision_type, p2.collision_type) {
             (CollisionType::Extrusion, CollisionType::Extrusion) => true,
             (CollisionType::Damaged, CollisionType::Blow { .. }) => true,
             (CollisionType::Damaged, CollisionType::Projectile { .. }) => true,
@@ -22,6 +22,7 @@ impl<'s> PairFilter<'s> for CollisionParamater {
             (CollisionType::Projectile { .. }, CollisionType::Damaged) => true,
             (CollisionType::Throw, CollisionType::Damaged) => true,
             _ => false,
-        }
+        };
+        filter
     }
 }

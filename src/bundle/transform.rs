@@ -1,6 +1,6 @@
 use crate::{
     system::{direction::DirectionSystem, extrude::ExtrudeSystem, move_unit::MoveSystem},
-    traits::ParamaterFromData,
+    traits::{ExtrudeFilter, ParamaterFromData},
 };
 use amethyst::{
     core::SystemBundle,
@@ -27,7 +27,7 @@ impl<T, P> FightTransformBundle<T, P> {
 impl<'a, 'b, T, P> SystemBundle<'a, 'b> for FightTransformBundle<T, P>
 where
     T: AnimationFile + std::fmt::Debug,
-    P: 'static + Send + Sync + ParamaterFromData<T::UserData>,
+    P: 'static + Send + Sync + ParamaterFromData<T::UserData> + for<'c> ExtrudeFilter<'c>,
 {
     fn build(
         self,
