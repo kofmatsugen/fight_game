@@ -16,6 +16,10 @@ pub enum Error {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PackKey {
     Base,
+
+    AnimeMaking,
+
+    TestPack,
 }
 
 #[cfg(feature = "serialize")]
@@ -24,6 +28,8 @@ impl FromStr for PackKey {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "sample" => Ok(PackKey::Base),
+            "AnimeMaking" => Ok(PackKey::AnimeMaking),
+            "test_pack" => Ok(PackKey::TestPack),
             _ => Err(Error::UnknownPackName(s.into())),
         }
     }
@@ -45,6 +51,18 @@ pub enum AnimationKey {
     Punch2,
     Sitdown,
     Standup,
+
+    //
+    BasePose,
+    KeyPose,
+    KeyPoseInterpolate,
+    KeyPoseReaction,
+    KeyPoseLinear,
+    KeyPoseCurve,
+    KeyPoseArrange,
+
+    //
+    Deform,
 }
 
 #[cfg(feature = "serialize")]
@@ -65,6 +83,16 @@ impl FromStr for AnimationKey {
             "0010_punch2" => Ok(AnimationKey::Punch2),
             "0011_sitdown" => Ok(AnimationKey::Sitdown),
             "0012_standup" => Ok(AnimationKey::Standup),
+
+            "00_基本ポーズ" => Ok(AnimationKey::BasePose),
+            "01_キーポーズ" => Ok(AnimationKey::KeyPose),
+            "02_キーポーズ（補間のみ）" => Ok(AnimationKey::KeyPoseInterpolate),
+            "03_キーポーズ（予備+反動）" => Ok(AnimationKey::KeyPoseReaction),
+            "04_線形補間" => Ok(AnimationKey::KeyPoseLinear),
+            "05_カーブエディタ補間" => Ok(AnimationKey::KeyPoseCurve),
+            "06_アレンジ" => Ok(AnimationKey::KeyPoseArrange),
+
+            "deform" => Ok(AnimationKey::Deform),
             _ => Err(Error::UnknownAnimationName(s.into())),
         }
     }
