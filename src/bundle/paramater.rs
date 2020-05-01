@@ -3,8 +3,11 @@ use crate::system::debug;
 use crate::{
     input::FightInput,
     resource::command::CommandList,
-    system::{command_activate::CommandActivateSystem, register_collider::RegisterColliderSystem},
-    traits::ParamaterFromData,
+    system::{
+        apply_hit_info::ApplyHitInfoSystem, command_activate::CommandActivateSystem,
+        damage_judge::DamageJudgeSystem, register_collider::RegisterColliderSystem,
+    },
+    traits::{ExtrudeFilter, ParamaterFromData, UpdateHitInfo},
 };
 use amethyst::{
     assets::Processor,
@@ -16,24 +19,31 @@ use input_handle::{system::InputHandleSystem, traits::InputParser};
 use std::marker::PhantomData;
 
 // パラメータのセット，登録を行うバンドル
-pub struct FightParamaterBundle<T, P> {
+pub struct FightParamaterBundle<T, P, H> {
     _animation_file: PhantomData<T>,
     _paramater: PhantomData<P>,
+    _hit_info: PhantomData<H>,
 }
 
-impl<T, P> FightParamaterBundle<T, P> {
+impl<T, P, H> FightParamaterBundle<T, P, H> {
     pub fn new() -> Self {
         FightParamaterBundle {
             _animation_file: PhantomData,
             _paramater: PhantomData,
+            _hit_info: PhantomData,
         }
     }
 }
 
-impl<'a, 'b, T, P> SystemBundle<'a, 'b> for FightParamaterBundle<T, P>
+impl<'a, 'b, T, P, H> SystemBundle<'a, 'b> for FightParamaterBundle<T, P, H>
 where
     T: AnimationFile + std::fmt::Debug,
-    P: 'static + Send + Sync + ParamaterFromData<T::UserData>,
+    P: 'static
+        + Send
+        + Sync
+        + for<'c> ParamaterFromData<'c, T::UserData>
+        + for<'c> ExtrudeFilter<'c>,
+    H: for<'c> UpdateHitInfo<'c, Paramater = P>,
 {
     fn build(
         self,
@@ -77,6 +87,12 @@ where
             "command_debug_system",
             &[],
         );
+
+        // 判定で起きたことをパラメータへ書き込み処理
+        builder.add(DamageJudgeSystem::<H>::new(), "damage_judge_system", &[]);
+
+        // 判定を適用
+        builder.add(ApplyHitInfoSystem::new(), "apply_hit_info", &[]);
 
         // 判定登録
         builder.add(

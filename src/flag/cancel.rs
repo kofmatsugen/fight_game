@@ -91,11 +91,13 @@ enum CancelValue {
     Jump,
     Skill,
     Guard,
+    Any,
 }
 
 // シリアライズ用フラグ優先順位
-const SERIALIZE_FLAGS: [(Cancel, CancelValue); 19] = [
+const SERIALIZE_FLAGS: [(Cancel, CancelValue); 20] = [
     // 設定用エイリアス
+    (Cancel::all(), CancelValue::Any),
     (Cancel::MOVE, CancelValue::Move),
     (Cancel::DASH, CancelValue::Dash),
     (Cancel::JUMP, CancelValue::Jump),
@@ -142,6 +144,7 @@ impl CancelValue {
             CancelValue::Jump => Cancel::JUMP,
             CancelValue::Skill => Cancel::SKILL,
             CancelValue::Guard => Cancel::GUARD,
+            CancelValue::Any => Cancel::all(),
         }
     }
 

@@ -61,8 +61,12 @@ where
         .and_then(|data| data.pack(&pack_id))?;
     let animation = pack.animation(&animation_id)?;
 
-    let current_frame = animation.sec_to_frame_loop(time.current_time());
-    let prev_frame = animation.sec_to_frame_loop(time.prev_time());
+    let current_time = match time {
+        AnimationTime::Play { current_time, .. } => *current_time,
+        AnimationTime::Stop { stopped_time, .. } => *stopped_time,
+    };
+    let current_frame = animation.sec_to_frame(current_time);
+    let prev_frame = animation.sec_to_frame(current_time);
 
     // ルートのIDは0固定なので0指定
     // todo 固定値のIDはconst化するのもあり

@@ -27,7 +27,11 @@ impl<T, P> FightTransformBundle<T, P> {
 impl<'a, 'b, T, P> SystemBundle<'a, 'b> for FightTransformBundle<T, P>
 where
     T: AnimationFile + std::fmt::Debug,
-    P: 'static + Send + Sync + ParamaterFromData<T::UserData> + for<'c> ExtrudeFilter<'c>,
+    P: 'static
+        + Send
+        + Sync
+        + for<'c> ParamaterFromData<'c, T::UserData>
+        + for<'c> ExtrudeFilter<'c>,
 {
     fn build(
         self,

@@ -47,7 +47,6 @@ impl<'s> TranslateAnimation<'s> for FightTranslation {
         let next = if rest_time >= 0. {
             on_during_animation(pack_anim_key, user, active, skill_set)
         } else {
-            return Some((*pack_anim_key.0, *pack_anim_key.1, 0));
             on_finish_animation(pack_anim_key, user, active, skill_set)
         };
         log::trace!("=> {:?}", next);
@@ -98,7 +97,6 @@ lazy_static::lazy_static! {
     static ref FILE_LIST: BTreeMap<file::FileId, (&'static str, usize)> = {
         let mut list = BTreeMap::new();
         list.insert(file::FileId::Sample, ("sample", 1));
-        list.insert(file::FileId::AnimeMaking, ("AnimeMaking", 1));
         list.insert(file::FileId::Sandbox, ("sandbox", 1));
         list
     };

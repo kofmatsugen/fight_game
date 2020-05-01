@@ -11,8 +11,9 @@ pub struct CollisionParamater {
     pub collision_type: CollisionType,
 }
 
-impl ParamaterFromData<AnimationParam> for CollisionParamater {
-    fn make_collision_data(param: Option<&AnimationParam>) -> Option<Self> {
+impl<'s> ParamaterFromData<'s, AnimationParam> for CollisionParamater {
+    type SystemData = ();
+    fn make_collision_data(param: Option<&AnimationParam>, (): &Self::SystemData) -> Option<Self> {
         let collision_type = param?.collision_type?;
 
         Some(CollisionParamater { collision_type })

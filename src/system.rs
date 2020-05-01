@@ -1,4 +1,6 @@
+pub(crate) mod apply_hit_info;
 pub(crate) mod command_activate;
+pub(crate) mod damage_judge;
 #[cfg(feature = "debug")]
 pub(crate) mod debug;
 pub(crate) mod direction;

@@ -1,6 +1,6 @@
 use amethyst::ecs::{Entity, SystemData};
 
-pub trait ExtrudeFilter<'s> {
+pub trait ExtrudeFilter<'s>: 'static + Send + Sync {
     type SystemData: SystemData<'s>;
 
     // 押し出し判定を行うフィルタ
