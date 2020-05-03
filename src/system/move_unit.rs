@@ -68,6 +68,10 @@ where
     let current_frame = animation.sec_to_frame(current_time);
     let prev_frame = animation.sec_to_frame(current_time);
 
+    if current_frame >= animation.total_frame() {
+        return None;
+    }
+
     // ルートのIDは0固定なので0指定
     // todo 固定値のIDはconst化するのもあり
     pack.parts().nth(0).map(|_| {

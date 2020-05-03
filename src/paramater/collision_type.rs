@@ -10,6 +10,8 @@ pub enum CollisionType {
         air: BlowInfo,    // 空中ヒット時
         ground: BlowInfo, // 地上ヒット時
         hit_level: HitLevel,
+        #[serde(default, skip_serializing_if = "count_zero")]
+        collision_count: u32,
     },
     // 弾
     Projectile {
@@ -17,6 +19,8 @@ pub enum CollisionType {
         air: BlowInfo,    // 空中ヒット時
         ground: BlowInfo, // 地上ヒット時
         hit_level: HitLevel,
+        #[serde(default, skip_serializing_if = "count_zero")]
+        collision_count: u32,
     },
     Throw,
     Damaged, // 被ダメージ
@@ -25,9 +29,9 @@ pub enum CollisionType {
 // 攻撃ヒット時の硬直情報
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct BlowInfo {
-    x: f32,       // 移動速度初期値
-    y: f32,       // 移動速度初期値
-    frame: usize, // ヒットフレーム
+    pub(crate) x: f32,       // 移動速度初期値
+    pub(crate) y: f32,       // 移動速度初期値
+    pub(crate) frame: usize, // ヒットフレーム
 }
 
 // ヒットレベル情報
@@ -80,4 +84,8 @@ impl PartialEq for HitLevel {
     fn eq(&self, other: &Self) -> bool {
         self.level().eq(&other.level())
     }
+}
+
+fn count_zero(count: &u32) -> bool {
+    *count == 0
 }

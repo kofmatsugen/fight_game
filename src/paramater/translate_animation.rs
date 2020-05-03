@@ -9,7 +9,7 @@ use amethyst_sprite_studio::traits::{
 };
 use std::collections::BTreeMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct FightTranslation;
 
 type FightFileId = file::FileId;

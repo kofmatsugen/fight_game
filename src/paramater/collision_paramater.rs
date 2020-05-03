@@ -1,26 +1,75 @@
 use crate::{
+    components::SkillCount,
     paramater::{AnimationParam, CollisionType},
     traits::{ExtrudeFilter, ParamaterFromData},
+    types::DamageCollisionId,
 };
-use amethyst::ecs::Entity;
+use amethyst::ecs::{Entity, ReadStorage};
 #[cfg(feature = "debug")]
 use amethyst_aabb::debug::traits::CollisionColor;
+use amethyst_sprite_studio::{components::PlayAnimationKey, traits::animation_file::AnimationFile};
 
 #[derive(Clone, Copy, Debug)]
-pub struct CollisionParamater {
+pub struct CollisionParamater<T>
+where
+    T: AnimationFile,
+{
     pub collision_type: CollisionType,
+    pub damage_collision_id: Option<DamageCollisionId<T>>,
 }
 
-impl<'s> ParamaterFromData<'s, AnimationParam> for CollisionParamater {
-    type SystemData = ();
-    fn make_collision_data(param: Option<&AnimationParam>, (): &Self::SystemData) -> Option<Self> {
+impl<'s, T> ParamaterFromData<'s, AnimationParam> for CollisionParamater<T>
+where
+    T: AnimationFile,
+{
+    type SystemData = (
+        // 判定ID生成に必要
+        ReadStorage<'s, PlayAnimationKey<T>>,
+        ReadStorage<'s, SkillCount<T>>,
+    );
+    fn make_collision_data(
+        entity: Entity,
+        param: Option<&AnimationParam>,
+        (keys, skill_counts): &Self::SystemData,
+    ) -> Option<Self> {
         let collision_type = param?.collision_type?;
 
-        Some(CollisionParamater { collision_type })
+        let damage_collision_id = match &collision_type {
+            &CollisionType::Blow {
+                collision_count, ..
+            }
+            | &CollisionType::Projectile {
+                collision_count, ..
+            } => {
+                // 攻撃判定だったら判定IDを作る
+                let (&file, &pack, &anim) = keys.get(entity)?.play_key()?;
+                let count = skill_counts
+                    .get(entity)
+                    .map(|count| count.skill_count(&(file, pack, anim)))
+                    .unwrap_or(0);
+                Some(DamageCollisionId::new(&(
+                    entity,
+                    file,
+                    pack,
+                    anim,
+                    collision_count,
+                    count,
+                )))
+            }
+            _ => None,
+        };
+
+        Some(CollisionParamater {
+            collision_type,
+            damage_collision_id,
+        })
     }
 }
 
-impl<'s> ExtrudeFilter<'s> for CollisionParamater {
+impl<'s, T> ExtrudeFilter<'s> for CollisionParamater<T>
+where
+    T: AnimationFile,
+{
     type SystemData = ();
 
     // 押し出し判定を行うフィルタ
@@ -39,7 +88,10 @@ impl<'s> ExtrudeFilter<'s> for CollisionParamater {
 }
 
 #[cfg(feature = "debug")]
-impl CollisionColor for CollisionParamater {
+impl<T> CollisionColor for CollisionParamater<T>
+where
+    T: AnimationFile,
+{
     fn collision_color(&self) -> (f32, f32, f32, f32) {
         match self.collision_type {
             CollisionType::Extrusion => (1., 0., 1., 1.),

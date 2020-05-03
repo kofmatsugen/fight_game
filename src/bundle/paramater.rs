@@ -5,7 +5,8 @@ use crate::{
     resource::command::CommandList,
     system::{
         apply_hit_info::ApplyHitInfoSystem, command_activate::CommandActivateSystem,
-        damage_judge::DamageJudgeSystem, register_collider::RegisterColliderSystem,
+        damage_judge::DamageJudgeSystem, knockback::KnockbackSystem,
+        register_collider::RegisterColliderSystem, skill_count::SkillCountSystem,
     },
     traits::{ExtrudeFilter, ParamaterFromData, UpdateHitInfo},
 };
@@ -88,11 +89,17 @@ where
             &[],
         );
 
+        // 技の使用回数カウント
+        builder.add(SkillCountSystem::<T>::new(), "skill_count_system", &[]);
+
+        // ノックバック情報更新
+        builder.add(KnockbackSystem::<T>::new(), "knockback_system", &[]);
+
         // 判定で起きたことをパラメータへ書き込み処理
         builder.add(DamageJudgeSystem::<H>::new(), "damage_judge_system", &[]);
 
         // 判定を適用
-        builder.add(ApplyHitInfoSystem::new(), "apply_hit_info", &[]);
+        builder.add(ApplyHitInfoSystem::<T>::new(), "apply_hit_info", &[]);
 
         // 判定登録
         builder.add(

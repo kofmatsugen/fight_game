@@ -65,7 +65,7 @@ where
         transform, user, ..
     } in nodes.nodes().filter(|Node { hide, .. }| *hide == false)
     {
-        if let Some(param) = P::make_collision_data(user.as_ref(), collision_system_data) {
+        if let Some(param) = P::make_collision_data(e, user.as_ref(), collision_system_data) {
             let translation = transform.translation();
             let scale = transform.scale();
             registered_collision.add_aabb((translation.x, translation.y), scale.x, scale.y, param);

@@ -92,13 +92,15 @@ fn update_info<'s, H>(
 where
     H: UpdateHitInfo<'s>,
 {
-    let mut attack_hit_info = H::default();
-    let damage_cancels = attack_hit_info.attack_update(damage, attack_param, damage_param, data);
-    hits.insert(attack, attack_hit_info)?;
+    let damage_cancels = {
+        let attack_hit_info = hits.entry(attack)?.or_insert(H::default());
+        attack_hit_info.attack_update(damage, attack_param, damage_param, data)
+    };
 
-    let mut damage_hit_info = H::default();
-    let attack_cancels = damage_hit_info.damage_update(damage, attack_param, damage_param, data);
-    hits.insert(damage, damage_hit_info)?;
+    let attack_cancels = {
+        let damage_hit_info = hits.entry(damage)?.or_insert(H::default());
+        damage_hit_info.damage_update(damage, attack_param, damage_param, data)
+    };
 
     for (e, cancel) in damage_cancels {
         if let Some(hit) = hits.get_mut(e) {
