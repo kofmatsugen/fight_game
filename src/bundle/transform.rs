@@ -1,5 +1,5 @@
 use crate::{
-    system::{direction::DirectionSystem, move_unit::MoveSystem},
+    system::direction::DirectionSystem,
     traits::{ExtrudeFilter, ParamaterFromData, UpdateHitInfo},
 };
 use amethyst::{
@@ -42,8 +42,6 @@ where
         builder: &mut DispatcherBuilder,
     ) -> Result<(), amethyst::Error> {
         log::info!("fight transform bundle build");
-
-        builder.add(MoveSystem::<T>::new(), "animation_move_system", &[]);
 
         builder.add(DirectionSystem::new(), "direction_system", &[]);
 

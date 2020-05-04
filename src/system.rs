@@ -6,6 +6,5 @@ pub(crate) mod debug;
 pub(crate) mod direction;
 pub(crate) mod extrude;
 pub(crate) mod knockback;
-pub(crate) mod move_unit;
 pub(crate) mod register_collider;
 pub(crate) mod skill_count;
