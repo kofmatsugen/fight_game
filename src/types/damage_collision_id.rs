@@ -118,13 +118,15 @@ where
     T: AnimationFile,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DamageCollisionId")
-            .field("collision_owner", &self.collision_owner)
-            .field("file_id", &self.file_id)
-            .field("pack", &self.pack)
-            .field("animation", &self.animation)
-            .field("collision_id", &self.collision_id)
-            .field("animation_count", &self.animation_count)
-            .finish()
+        f.write_fmt(format_args!(
+            "{:?}/{:?}/{:?}_e{:04}_g{:04}_c{:04}_i{:03}",
+            self.file_id,
+            self.pack,
+            self.animation,
+            self.collision_owner.id(),
+            self.collision_owner.gen().id(),
+            self.animation_count,
+            self.collision_id
+        ))
     }
 }

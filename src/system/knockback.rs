@@ -48,13 +48,14 @@ where
                 AnimationTime::Play { .. } => {}
                 AnimationTime::Stop { .. } => continue,
             }
+            if knockback.is_knockback() == true {
+                knockback.decrement(time);
 
-            knockback.decrement(time);
-
-            if knockback.is_knockback() == false {
-                // ノックバックしないようになったのでダメージ情報をクリア
-                if let Some(damaged) = damaged.get_mut(e) {
-                    damaged.clear();
+                if knockback.is_knockback() == false {
+                    // ノックバックしないようになったのでダメージ情報をクリア
+                    if let Some(damaged) = damaged.get_mut(e) {
+                        damaged.clear();
+                    }
                 }
             }
         }

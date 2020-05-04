@@ -25,13 +25,16 @@ where
 
     pub(crate) fn add_id(&mut self, id: DamageCollisionId<T>) {
         self.damaged_collision_ids.insert(id);
+        log::trace!("inserted: {:?}", self.damaged_collision_ids);
     }
 
     pub(crate) fn contains(&self, id: &DamageCollisionId<T>) -> bool {
+        log::trace!("{:?} contains {:?}", id, self.damaged_collision_ids);
         self.damaged_collision_ids.contains(id)
     }
 
     pub(crate) fn clear(&mut self) {
+        log::trace!("clear: {:?}", self.damaged_collision_ids);
         self.damaged_collision_ids.clear();
     }
 }

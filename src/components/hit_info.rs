@@ -90,11 +90,7 @@ where
         _damage_param: &Self::Paramater,
         (): &Self::SystemData,
     ) -> Vec<(Entity, Self::CancelInfo)> {
-        log::info!(
-            "update attack: {:?}, id = {:?}",
-            damage_owner,
-            _attack_collision_id
-        );
+        log::trace!("update attack: {:?}", damage_owner,);
         let mut _cancels = Vec::with_capacity(16);
 
         match attack_type {
@@ -118,7 +114,7 @@ where
         _damage_param: &Self::Paramater,
         (): &Self::SystemData,
     ) -> Vec<(Entity, Self::CancelInfo)> {
-        log::info!("update damage: {:?}", attack_owner);
+        log::trace!("update damage: {:?}", attack_owner);
         let mut _cancels = Vec::with_capacity(16);
         match attack_type {
             CollisionType::Blow {
@@ -130,8 +126,8 @@ where
                 let hitstop = hit_level.hitstop();
                 self.hitstop = hitstop.into();
                 self.knockback = ground.frame.into();
-                log::info!(
-                    "hitstop = {}, knockback = {}, collision_id = {:?}",
+                log::debug!(
+                    "hitstop = {}, knockback = {}, id = {:?}",
                     hitstop,
                     ground.frame,
                     attack_collision_id
@@ -140,6 +136,7 @@ where
             _ => {}
         }
         if let &Some(attack_collision_id) = attack_collision_id {
+            log::debug!("add id = {:?}", attack_collision_id);
             self.damage_collision_ids.push(attack_collision_id);
         }
 

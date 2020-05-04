@@ -1,5 +1,8 @@
 use crate::traits::{ExtrudeFilter, HitType, UpdateHitInfo, UpdateHitInfoType};
-use amethyst::core::ecs::{Entity, ReaderId, System, Write, WriteStorage};
+use amethyst::{
+    core::timing::Time,
+    ecs::{Entity, Read, ReaderId, System, Write, WriteStorage},
+};
 use amethyst_aabb::event::{ContactEvent, ContactEventChannel};
 
 // ダメージ処理をするための情報を統合するシステム
@@ -29,20 +32,18 @@ where
         WriteStorage<'s, H>,
         <H::Paramater as ExtrudeFilter<'s>>::SystemData,
         H::SystemData,
+        Read<'s, Time>,
     );
 
-    fn run(&mut self, (mut channel, mut hits, filter_params, hit_info_params): Self::SystemData) {
+    fn run(
+        &mut self,
+        (mut channel, mut hits, filter_params, hit_info_params, time): Self::SystemData,
+    ) {
         if self.reader.is_none() == true {
             self.reader = channel.register_reader().into();
         }
 
-        for ContactEvent {
-            entity1,
-            entity2,
-            args1,
-            args2,
-            ..
-        } in channel.read(self.reader.as_mut().unwrap()).filter(
+        for event in channel.read(self.reader.as_mut().unwrap()).filter(
             |ContactEvent {
                  entity1,
                  entity2,
@@ -60,6 +61,15 @@ where
                 ) == false
             },
         ) {
+            log::info!("[{} F] update hit info event", time.frame_number());
+            let ContactEvent {
+                entity1,
+                entity2,
+                args1,
+                args2,
+                ..
+            } = event;
+
             let (attack, damage, attack_param, damage_param) = match H::check_hit_type(args1, args2)
             {
                 HitType::Attack => (*entity1, *entity2, args1, args2),

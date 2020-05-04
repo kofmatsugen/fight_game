@@ -1,6 +1,9 @@
 use crate::traits::ParamaterFromData;
-use amethyst::ecs::{
-    error::WrongGeneration, Entities, Entity, Join, ReadStorage, System, WriteStorage,
+use amethyst::{
+    core::timing::Time,
+    ecs::{
+        error::WrongGeneration, Entities, Entity, Join, Read, ReadStorage, System, WriteStorage,
+    },
 };
 use amethyst_aabb::Collisions;
 use amethyst_sprite_studio::{
@@ -33,12 +36,21 @@ where
         ReadStorage<'s, AnimationNodes<T::UserData>>,
         WriteStorage<'s, Collisions<P>>,
         P::SystemData,
+        Read<'s, Time>,
     );
 
-    fn run(&mut self, (entities, nodes, mut collisions, collision_system_data): Self::SystemData) {
+    fn run(
+        &mut self,
+        (entities, nodes, mut collisions, collision_system_data, time): Self::SystemData,
+    ) {
         #[cfg(feature = "profiler")]
         thread_profiler::profile_scope!("register_collider");
         for (e, nodes) in (&*entities, &nodes).join() {
+            log::trace!(
+                "[{} F] node frame = {} F",
+                time.frame_number(),
+                nodes.play_frame()
+            );
             match register_collision::<T, _>(e, nodes, &mut collisions, &collision_system_data) {
                 Ok(()) => {}
                 Err(err) => log::error!("{:?}", err),
@@ -68,6 +80,13 @@ where
         if let Some(param) = P::make_collision_data(e, user.as_ref(), collision_system_data) {
             let translation = transform.translation();
             let scale = transform.scale();
+            log::trace!(
+                "\t collision = ({}, {}), [{}, {}]",
+                translation.x,
+                translation.y,
+                scale.x,
+                scale.y
+            );
             registered_collision.add_aabb((translation.x, translation.y), scale.x, scale.y, param);
         }
     }
