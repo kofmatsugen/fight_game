@@ -1,5 +1,8 @@
 use crate::paramater::FightTranslation;
-use amethyst::ecs::{Entity, ReadStorage};
+use amethyst::{
+    core::Transform,
+    ecs::{Entity, ReadStorage},
+};
 use amethyst_sprite_studio::{
     components::{AnimationNodes, AnimationTime, PlayAnimationKey},
     traits::animation_file::AnimationFile,
@@ -14,13 +17,15 @@ impl<'s> DebugDisplayFormat<'s> for DisplayInfo {
         ReadStorage<'s, AnimationTime>,
         ReadStorage<'s, PlayAnimationKey<FightTranslation>>,
         ReadStorage<'s, AnimationNodes<<FightTranslation as AnimationFile>::UserData>>,
+        ReadStorage<'s, Transform>,
     );
 
-    fn display(e: Entity, (time, key, node): &Self::DisplayData) -> Option<String> {
+    fn display(e: Entity, (time, key, node, transform): &Self::DisplayData) -> Option<String> {
         let mut out = Vec::new();
         let time = time.get(e)?;
         let key = key.get(e)?;
         let node = node.get(e)?;
+        let transform = transform.get(e)?;
 
         let (file, pack, anim) = key.play_key()?;
 
@@ -35,6 +40,18 @@ impl<'s> DebugDisplayFormat<'s> for DisplayInfo {
                 out.push(format!("Stop"));
             }
         }
+
+        out.push(format!(
+            "Pos: ({:.2}, {:.2})",
+            transform.translation().x,
+            transform.translation().y
+        ));
+
+        out.push(format!(
+            "Vel: ({:+.2}, {:+.2})",
+            node.root_translate().0,
+            node.root_translate().1
+        ));
 
         Some(out.join("\n"))
     }
