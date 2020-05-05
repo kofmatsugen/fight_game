@@ -1,5 +1,8 @@
 use crate::traits::ExtrudeFilter;
-use amethyst::core::ecs::{Entity, ReaderId, System, Write, WriteStorage};
+use amethyst::core::{
+    ecs::{Entity, Read, ReaderId, System, Write, WriteStorage},
+    Time,
+};
 use amethyst_aabb::{
     event::{ContactEvent, ContactEventChannel},
     types::{Contact, Vector},
@@ -30,10 +33,11 @@ where
     type SystemData = (
         WriteStorage<'s, Movement>,
         Write<'s, ContactEventChannel<T>>,
+        Read<'s, Time>,
         T::SystemData,
     );
 
-    fn run(&mut self, (mut movements, mut channel, filter_params): Self::SystemData) {
+    fn run(&mut self, (mut movements, mut channel, time, filter_params): Self::SystemData) {
         #[cfg(feature = "profiler")]
         thread_profiler::profile_scope!("extrude");
         if self.reader.is_none() == true {
@@ -57,10 +61,10 @@ where
             // 格ゲーでは押し出し判定は横方向のみ
             let extrude_length = normal.into_inner() * depth / 2.;
             log::info!(
-                "extrude: normal = [{}, {}] depth = {}",
-                normal.x,
-                normal.y,
-                depth,
+                "[{} F] extrude: normal = [{}, {}]",
+                time.frame_number(),
+                extrude_length.x,
+                extrude_length.y,
             );
             extrude(&mut movements, entity1, -extrude_length);
             extrude(&mut movements, entity2, -extrude_length);
