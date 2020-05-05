@@ -63,7 +63,7 @@ where
                 depth,
             );
             extrude(&mut movements, entity1, -extrude_length);
-            extrude(&mut movements, entity2, extrude_length);
+            extrude(&mut movements, entity2, -extrude_length);
         }
     }
 }
@@ -76,6 +76,6 @@ fn extrude(
     let movement = movements.get_mut(e)?;
     movement
         .transform_mut()
-        .append_translation_xyz(extrude_length.x, extrude_length.y, 0.);
+        .append_translation_xyz(extrude_length.x, 0., 0.);
     Some(())
 }

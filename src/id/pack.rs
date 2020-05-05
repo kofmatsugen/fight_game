@@ -39,6 +39,8 @@ pub enum AnimationKey {
     Punch,
     Stance,
     StartUp,
+    Walk,
+    Back,
     //
     Deform,
 }
@@ -52,6 +54,8 @@ impl FromStr for AnimationKey {
             "Punch" => Ok(AnimationKey::Punch),
             "Stance" => Ok(AnimationKey::Stance),
             "StartUp" => Ok(AnimationKey::StartUp),
+            "Walk" => Ok(AnimationKey::Walk),
+            "Back" => Ok(AnimationKey::Back),
 
             "deform" => Ok(AnimationKey::Deform),
             _ => Err(Error::UnknownAnimationName(s.into())),

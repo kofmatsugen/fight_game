@@ -85,7 +85,8 @@ where
         damage_owner: Entity, //
         CollisionParamater {
             collision_type: attack_type,
-            damage_collision_id: _attack_collision_id,
+            collision_id: _attack_collision_id,
+            ..
         }: &Self::Paramater,
         _damage_param: &Self::Paramater,
         (): &Self::SystemData,
@@ -109,7 +110,8 @@ where
         attack_owner: Entity,
         CollisionParamater {
             collision_type: attack_type,
-            damage_collision_id: attack_collision_id,
+            collision_id: attack_collision_id,
+            ..
         }: &Self::Paramater,
         _damage_param: &Self::Paramater,
         (): &Self::SystemData,
