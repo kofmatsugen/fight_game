@@ -2,11 +2,12 @@ use crate::{
     components::{Damaged, SkillCount},
     paramater::{AnimationParam, CollisionType},
     traits::{ExtrudeFilter, ParamaterFromData},
-    types::{DamageCollisionId, FightPairFilter},
+    types::DamageCollisionId,
 };
 use amethyst::ecs::{Entity, ReadStorage};
 #[cfg(feature = "debug")]
-use amethyst_aabb::{debug::traits::CollisionColor, traits::CollisionObject};
+use amethyst_aabb::debug::traits::CollisionColor;
+use amethyst_aabb::traits::CollisionObject;
 use amethyst_sprite_studio::{components::PlayAnimationKey, traits::animation_file::AnimationFile};
 
 #[derive(Debug)]
@@ -23,7 +24,40 @@ impl<T> CollisionObject for CollisionParamater<T>
 where
     T: AnimationFile,
 {
-    type PairFilter = FightPairFilter<T>;
+    fn pair_filter(p1: &Self, p2: &Self) -> bool {
+        match (p1.collision_type, p2.collision_type) {
+            // 押し出し判定は存在するならOK
+            (CollisionType::Extrusion, CollisionType::Extrusion) => true,
+
+            // ダメージvs攻撃なら，ダメージ側が攻撃側の判定とぶつかったことがないかチェック
+            (CollisionType::Damaged, CollisionType::Blow { .. })
+            | (CollisionType::Damaged, CollisionType::Projectile { .. })
+            | (CollisionType::Damaged, CollisionType::Throw) => {
+                yet_nothit_collision(p2.collision_id.as_ref(), p1.damaged_collision_ids.as_ref())
+            }
+            // 攻撃vsダメージなら，ダメージ側が攻撃側の判定とぶつかったことがないかチェック
+            (CollisionType::Blow { .. }, CollisionType::Damaged)
+            | (CollisionType::Projectile { .. }, CollisionType::Damaged)
+            | (CollisionType::Throw, CollisionType::Damaged) => {
+                yet_nothit_collision(p1.collision_id.as_ref(), p2.damaged_collision_ids.as_ref())
+            }
+            _ => false,
+        }
+    }
+}
+
+// まだぶつかってない判定かどうか
+fn yet_nothit_collision<T>(
+    attack_id: Option<&DamageCollisionId<T>>,
+    damaged_ids: Option<&Damaged<T>>,
+) -> bool
+where
+    T: AnimationFile,
+{
+    damaged_ids
+        .and_then(|ids| attack_id.map(|id| (ids, id)))
+        .map(|(ids, id)| ids.contains(id) == false)
+        .unwrap_or(true)
 }
 
 impl<'s, T> ParamaterFromData<'s, AnimationParam> for CollisionParamater<T>

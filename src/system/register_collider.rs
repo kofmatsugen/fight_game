@@ -1,13 +1,11 @@
 use crate::traits::ParamaterFromData;
 use amethyst::{
     core::timing::Time,
-    ecs::{
-        error::WrongGeneration, Entities, Entity, Join, Read, ReadStorage, System, WriteStorage,
-    },
+    ecs::{error::WrongGeneration, Entities, Entity, Join, Read, System, WriteStorage},
 };
 use amethyst_aabb::Collisions;
 use amethyst_sprite_studio::{
-    components::{AnimationNodes, Node},
+    components::{AnimationNodes, BuildRequireData, Node},
     traits::animation_file::AnimationFile,
 };
 use std::marker::PhantomData;
@@ -33,7 +31,7 @@ where
 {
     type SystemData = (
         Entities<'s>,
-        ReadStorage<'s, AnimationNodes<T::UserData>>,
+        BuildRequireData<'s, T>,
         WriteStorage<'s, Collisions<P>>,
         P::SystemData,
         Read<'s, Time>,
@@ -41,17 +39,40 @@ where
 
     fn run(
         &mut self,
-        (entities, nodes, mut collisions, collision_system_data, time): Self::SystemData,
+        (
+            entities,
+            (play_time, key, transforms, tint, storage, store),
+            mut collisions,
+            collision_system_data,
+            time,
+        ): Self::SystemData,
     ) {
         #[cfg(feature = "profiler")]
         thread_profiler::profile_scope!("register_collider");
-        for (e, nodes) in (&*entities, &nodes).join() {
+        let nodes = (&*entities, &play_time, &key, &transforms, tint.maybe())
+            .join()
+            .filter_map(|(e, play_time, key, transform, tint)| {
+                Some((
+                    e,
+                    AnimationNodes::<T::UserData>::make_node::<T>(
+                        play_time,
+                        tint,
+                        key.play_key(),
+                        transform,
+                        transform.global_matrix(),
+                        &store,
+                        &storage,
+                    )?,
+                ))
+            })
+            .collect::<Vec<_>>();
+        for (e, nodes) in nodes {
             log::trace!(
                 "[{} F] node frame = {} F",
                 time.frame_number(),
                 nodes.play_frame()
             );
-            match register_collision::<T, _>(e, nodes, &mut collisions, &collision_system_data) {
+            match register_collision::<T, _>(e, &nodes, &mut collisions, &collision_system_data) {
                 Ok(()) => {}
                 Err(err) => log::error!("{:?}", err),
             }
@@ -70,12 +91,16 @@ where
     P: 'static + Send + Sync + ParamaterFromData<'s, T::UserData>,
 {
     let registered_collision = collisions.entry(e)?.or_insert(Collisions::new());
-    // 新規に登録し直すので既存のものは削除
-    registered_collision.clear();
 
-    for Node {
-        transform, user, ..
-    } in nodes.nodes().filter(|Node { hide, .. }| *hide == false)
+    for (
+        id,
+        Node {
+            transform, user, ..
+        },
+    ) in nodes
+        .nodes()
+        .enumerate()
+        .filter(|(_, Node { hide, .. })| *hide == false)
     {
         if let Some(param) = P::make_collision_data(e, user.as_ref(), collision_system_data) {
             let translation = transform.translation();
@@ -87,7 +112,13 @@ where
                 scale.x,
                 scale.y
             );
-            registered_collision.add_aabb((translation.x, translation.y), scale.x, scale.y, param);
+            registered_collision.update_aabb(
+                id as u64,
+                (translation.x, translation.y),
+                scale.x,
+                scale.y,
+                param,
+            );
         }
     }
 
