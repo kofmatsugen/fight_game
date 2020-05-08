@@ -1,5 +1,5 @@
 use crate::traits::ParamaterFromData;
-use amethyst::ecs::{error::WrongGeneration, Entities, Entity, Join, System, WriteStorage};
+use amethyst::ecs::{Entities, Entity, Join, System, WriteStorage};
 use amethyst_aabb::Collisions;
 use amethyst_sprite_studio::{
     components::{AnimationNodes, BuildRequireData, Node},
@@ -62,9 +62,14 @@ where
             })
             .collect::<Vec<_>>();
         for (e, nodes) in nodes {
-            match register_collision::<T, _>(e, &nodes, &mut collisions, &collision_system_data) {
-                Ok(()) => {}
-                Err(err) => log::error!("{:?}", err),
+            match collisions.entry(e) {
+                Ok(entry) => {
+                    let collisions = entry.or_insert(Collisions::new());
+                    register_collision::<T, _>(e, &nodes, collisions, &collision_system_data)
+                }
+                Err(err) => {
+                    log::error!("error: {:?}", err);
+                }
             }
         }
     }
@@ -73,14 +78,13 @@ where
 fn register_collision<'s, T, P>(
     e: Entity,
     nodes: &AnimationNodes<T::UserData>,
-    collisions: &mut WriteStorage<Collisions<P>>,
+    collisions: &mut Collisions<P>,
     collision_system_data: &P::SystemData,
-) -> Result<(), WrongGeneration>
-where
+) where
     T: AnimationFile + std::fmt::Debug,
     P: 'static + Send + Sync + ParamaterFromData<'s, T::UserData>,
 {
-    let registered_collision = collisions.entry(e)?.or_insert(Collisions::new());
+    collisions.clear();
 
     for Node {
         transform, user, ..
@@ -96,19 +100,12 @@ where
                 scale.x,
                 scale.y
             );
-            registered_collision.update_aabb(
-                (translation.x, translation.y),
-                scale.x,
-                scale.y,
-                param,
-            );
+            collisions.update_aabb((translation.x, translation.y), scale.x, scale.y, param);
         }
     }
 
     // ノードに付随したインスタンスノードの判定も追加
     for instance in nodes.instance_nodes() {
-        register_collision::<T, _>(e, instance, collisions, collision_system_data)?;
+        register_collision::<T, _>(e, instance, collisions, collision_system_data);
     }
-
-    Ok(())
 }
