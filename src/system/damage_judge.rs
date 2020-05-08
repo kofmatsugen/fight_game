@@ -1,8 +1,5 @@
 use crate::traits::{ExtrudeFilter, HitType, UpdateHitInfo, UpdateHitInfoType};
-use amethyst::{
-    core::timing::Time,
-    ecs::{Entity, Read, ReaderId, System, Write, WriteStorage},
-};
+use amethyst::ecs::{Entity, ReaderId, System, Write, WriteStorage};
 use amethyst_aabb::event::{ContactEvent, ContactEventChannel};
 
 // ダメージ処理をするための情報を統合するシステム
@@ -32,13 +29,9 @@ where
         WriteStorage<'s, H>,
         <H::Paramater as ExtrudeFilter<'s>>::SystemData,
         H::SystemData,
-        Read<'s, Time>,
     );
 
-    fn run(
-        &mut self,
-        (mut channel, mut hits, filter_params, hit_info_params, time): Self::SystemData,
-    ) {
+    fn run(&mut self, (mut channel, mut hits, filter_params, hit_info_params): Self::SystemData) {
         if self.reader.is_none() == true {
             self.reader = channel.register_reader().into();
         }
@@ -61,7 +54,6 @@ where
                 ) == false
             },
         ) {
-            log::info!("[{} F] update hit info event", time.frame_number());
             let ContactEvent {
                 entity1,
                 entity2,
