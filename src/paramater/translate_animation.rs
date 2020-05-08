@@ -44,7 +44,7 @@ impl<'s> TranslateAnimation<'s> for FightTranslation {
     ) -> Option<(Self::PackKey, Self::AnimationKey, usize)> {
         let active = active_commands.get(entity)?;
         let skill_set = skill_sets.get(entity)?;
-        let next = if rest_time >= 0. {
+        let next = if rest_time > 0. {
             on_during_animation(pack_anim_key, user, active, skill_set)
         } else {
             on_finish_animation(pack_anim_key, user, active, skill_set)

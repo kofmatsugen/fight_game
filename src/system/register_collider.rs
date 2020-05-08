@@ -1,8 +1,5 @@
 use crate::traits::ParamaterFromData;
-use amethyst::{
-    core::timing::Time,
-    ecs::{error::WrongGeneration, Entities, Entity, Join, Read, System, WriteStorage},
-};
+use amethyst::ecs::{error::WrongGeneration, Entities, Entity, Join, System, WriteStorage};
 use amethyst_aabb::Collisions;
 use amethyst_sprite_studio::{
     components::{AnimationNodes, BuildRequireData, Node},
@@ -34,7 +31,6 @@ where
         BuildRequireData<'s, T>,
         WriteStorage<'s, Collisions<P>>,
         P::SystemData,
-        Read<'s, Time>,
     );
 
     fn run(
@@ -44,7 +40,6 @@ where
             (play_time, key, transforms, tint, storage, store),
             mut collisions,
             collision_system_data,
-            time,
         ): Self::SystemData,
     ) {
         #[cfg(feature = "profiler")]
@@ -67,11 +62,6 @@ where
             })
             .collect::<Vec<_>>();
         for (e, nodes) in nodes {
-            log::trace!(
-                "[{} F] node frame = {} F",
-                time.frame_number(),
-                nodes.play_frame()
-            );
             match register_collision::<T, _>(e, &nodes, &mut collisions, &collision_system_data) {
                 Ok(()) => {}
                 Err(err) => log::error!("{:?}", err),
@@ -92,15 +82,9 @@ where
 {
     let registered_collision = collisions.entry(e)?.or_insert(Collisions::new());
 
-    for (
-        id,
-        Node {
-            transform, user, ..
-        },
-    ) in nodes
-        .nodes()
-        .enumerate()
-        .filter(|(_, Node { hide, .. })| *hide == false)
+    for Node {
+        transform, user, ..
+    } in nodes.nodes().filter(|Node { hide, .. }| *hide == false)
     {
         if let Some(param) = P::make_collision_data(e, user.as_ref(), collision_system_data) {
             let translation = transform.translation();
@@ -113,7 +97,6 @@ where
                 scale.y
             );
             registered_collision.update_aabb(
-                id as u64,
                 (translation.x, translation.y),
                 scale.x,
                 scale.y,
