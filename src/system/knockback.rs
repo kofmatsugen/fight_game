@@ -44,10 +44,10 @@ where
         let time = time.delta_seconds();
         for (e, animation_time, knockback) in (&*entities, &animation_time, &mut knockback).join() {
             // ヒットストップがあるので，アニメーション再生中のみノックバックを計算
-            match animation_time {
-                AnimationTime::Play { .. } => {}
-                AnimationTime::Stop { .. } => continue,
+            if animation_time.is_play() == false {
+                continue;
             }
+
             if knockback.is_knockback() == true {
                 knockback.decrement(time);
 
