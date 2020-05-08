@@ -119,14 +119,8 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{:?}/{:?}/{:?}_e{:04}_g{:04}_c{:04}_i{:03}",
-            self.file_id,
-            self.pack,
-            self.animation,
-            self.collision_owner.id(),
-            self.collision_owner.gen().id(),
-            self.animation_count,
-            self.collision_id
+            "{:?}{:?}{:?}c{:03}i{:03}",
+            self.file_id, self.pack, self.animation, self.animation_count, self.collision_id
         ))
     }
 }

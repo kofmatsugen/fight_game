@@ -38,6 +38,10 @@ where
         log::trace!("clear: {:?}", self.damaged_collision_ids);
         self.damaged_collision_ids.clear();
     }
+
+    pub(crate) fn damaged_ids(&self) -> impl Iterator<Item = &DamageCollisionId<T>> {
+        self.damaged_collision_ids.iter()
+    }
 }
 
 impl<T> Component for Damaged<T>

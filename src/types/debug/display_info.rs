@@ -1,4 +1,4 @@
-use crate::paramater::FightTranslation;
+use crate::{components::Damaged, paramater::FightTranslation};
 use amethyst::{
     core::Transform,
     ecs::{Entity, ReadStorage},
@@ -14,9 +14,10 @@ impl<'s> DebugDisplayFormat<'s> for DisplayInfo {
         ReadStorage<'s, AnimationTime>,
         ReadStorage<'s, PlayAnimationKey<FightTranslation>>,
         ReadStorage<'s, Transform>,
+        ReadStorage<'s, Damaged<FightTranslation>>,
     );
 
-    fn display(e: Entity, (time, key, transform): &Self::DisplayData) -> Option<String> {
+    fn display(e: Entity, (time, key, transform, damaged): &Self::DisplayData) -> Option<String> {
         let mut out = Vec::new();
         let time = time.get(e)?;
         let key = key.get(e)?;
@@ -26,20 +27,31 @@ impl<'s> DebugDisplayFormat<'s> for DisplayInfo {
 
         out.push(format!("Key: {:?}/{:?}/{:?}", file, pack, anim));
 
-        match time {
-            &AnimationTime::Play { current_time, .. } => {
-                out.push(format!("Play: {:.3}", current_time));
-            }
-            &AnimationTime::Stop { stopped_time, .. } => {
-                out.push(format!("Stop: {:.3}", stopped_time));
-            }
-        }
+        let played = if time.is_play() == true {
+            "Play"
+        } else {
+            "Stop"
+        };
 
+        let current_frame = time.play_frame(60.);
+
+        out.push(format!(
+            "{}: {:3} F, {:6.3} ms",
+            played,
+            current_frame,
+            time.play_time() * 1000.
+        ));
         out.push(format!(
             "Pos: ({:.2}, {:.2})",
             transform.translation().x,
             transform.translation().y
         ));
+
+        if let Some(damaged) = damaged.get(e) {
+            for id in damaged.damaged_ids() {
+                out.push(format!("{:?}", id));
+            }
+        }
 
         Some(out.join("\n"))
     }
