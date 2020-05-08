@@ -59,7 +59,7 @@ where
         ) {
             // 格ゲーでは押し出し判定は横方向のみ
             let extrude_length = delta / 2.;
-            log::info!(
+            log::trace!(
                 "[{} F] extrude: normal = [{}, {}] ",
                 time.frame_number(),
                 extrude_length.x,
