@@ -24,6 +24,10 @@ impl Knockback {
     pub(crate) fn is_knockback(&self) -> bool {
         self.rest_time > 0.
     }
+
+    pub(crate) fn knockback_time(&self) -> f32 {
+        self.rest_time
+    }
 }
 
 impl Component for Knockback {

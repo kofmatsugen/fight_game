@@ -1,7 +1,11 @@
-use crate::{components::Damaged, paramater::FightTranslation};
+use crate::{
+    components::{Damaged, Knockback},
+    paramater::FightTranslation,
+};
 use amethyst::{
-    core::Transform,
+    core::{math::Point2, Transform},
     ecs::{Entity, ReadStorage},
+    renderer::{debug_drawing::DebugLinesComponent, palette::rgb::Srgba},
 };
 use amethyst_sprite_studio::components::{AnimationTime, PlayAnimationKey};
 use debug_system::traits::DebugDisplayFormat;
@@ -15,9 +19,13 @@ impl<'s> DebugDisplayFormat<'s> for DisplayInfo {
         ReadStorage<'s, PlayAnimationKey<FightTranslation>>,
         ReadStorage<'s, Transform>,
         ReadStorage<'s, Damaged<FightTranslation>>,
+        ReadStorage<'s, Knockback>,
     );
 
-    fn display(e: Entity, (time, key, transform, damaged): &Self::DisplayData) -> Option<String> {
+    fn display(
+        e: Entity,
+        (time, key, transform, damaged, _): &Self::DisplayData,
+    ) -> Option<String> {
         let mut out = Vec::new();
         let time = time.get(e)?;
         let key = key.get(e)?;
@@ -54,5 +62,29 @@ impl<'s> DebugDisplayFormat<'s> for DisplayInfo {
         }
 
         Some(out.join("\n"))
+    }
+
+    fn debug_lines(
+        e: Entity,
+        debug_lines: &mut DebugLinesComponent,
+        (_, _, transform, _, knockback): &Self::DisplayData,
+        position_z: f32,
+    ) -> Option<()> {
+        let transform = transform.get(e)?;
+
+        let translation = transform.translation();
+        let base_y = translation.y;
+        let base_x = translation.x;
+        if let Some(knockback) = knockback.get(e) {
+            if knockback.is_knockback() == true {
+                let color = Srgba::new(1., 0., 1., 1.);
+
+                let left_top = Point2::new(base_x, base_y + 10.);
+                let right_down = Point2::new(base_x + knockback.knockback_time() * 600., base_y);
+
+                debug_lines.add_rectangle_2d(left_top, right_down, position_z, color);
+            }
+        }
+        Some(())
     }
 }
