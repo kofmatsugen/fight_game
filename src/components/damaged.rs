@@ -39,6 +39,7 @@ where
         self.damaged_collision_ids.clear();
     }
 
+    #[cfg(feature = "debug")]
     pub(crate) fn damaged_ids(&self) -> impl Iterator<Item = &DamageCollisionId<T>> {
         self.damaged_collision_ids.iter()
     }

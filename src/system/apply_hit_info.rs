@@ -58,8 +58,12 @@ where
             // ノックバック時間適用
             if let Some(knockback_time) = hit.knockback {
                 if let Ok(entry) = knockback.entry(e) {
-                    log::debug!("apply knockback = {} F", knockback_time);
                     let knockback = entry.or_insert(Knockback::new());
+                    log::info!(
+                        "apply knockback = {} secs => {} F",
+                        knockback.knockback_time(),
+                        knockback_time
+                    );
                     let knockback_time = knockback_time as f32 / HIT_STOP_FPS;
                     knockback.set_knockback(knockback_time);
                 }

@@ -24,7 +24,7 @@ impl<'s> DebugDisplayFormat<'s> for DisplayInfo {
 
     fn display(
         e: Entity,
-        (time, key, transform, damaged, _): &Self::DisplayData,
+        (time, key, transform, damaged, knockback): &Self::DisplayData,
     ) -> Option<String> {
         let mut out = Vec::new();
         let time = time.get(e)?;
@@ -54,6 +54,10 @@ impl<'s> DebugDisplayFormat<'s> for DisplayInfo {
             transform.translation().x,
             transform.translation().y
         ));
+
+        if let Some(knockback) = knockback.get(e) {
+            out.push(format!("Knockback: {:.2} secs", knockback.knockback_time()));
+        }
 
         if let Some(damaged) = damaged.get(e) {
             for id in damaged.damaged_ids() {
