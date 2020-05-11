@@ -56,7 +56,7 @@ impl<'s> DebugDisplayFormat<'s> for DisplayInfo {
         ));
 
         if let Some(knockback) = knockback.get(e) {
-            out.push(format!("Knockback: {:.2} secs", knockback.knockback_time()));
+            out.push(format!("Knockback: {:.4} secs", knockback.knockback_time()));
         }
 
         if let Some(damaged) = damaged.get(e) {
