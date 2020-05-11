@@ -29,3 +29,4 @@ profiler=[
     "thread_profiler"
     ]
 debug=["amethyst-aabb/debug", "debug_system"]
+count-frame=["amethyst-sprite-studio/count-frame"]

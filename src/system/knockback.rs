@@ -39,9 +39,12 @@ where
 
     fn run(
         &mut self,
-        (time, entities, animation_time, mut damaged, mut knockback): Self::SystemData,
+        (_time, entities, animation_time, mut damaged, mut knockback): Self::SystemData,
     ) {
-        let time = time.delta_seconds();
+        #[cfg(not(feature = "count-frame"))]
+        let time = _time.delta_seconds();
+        #[cfg(feature = "count-frame")]
+        let time = 1. / 60.;
         for (e, animation_time, knockback) in (&*entities, &animation_time, &mut knockback).join() {
             // ヒットストップがあるので，アニメーション再生中のみノックバックを計算
             if animation_time.is_play() == false {
