@@ -1,3 +1,4 @@
+pub mod analyze;
 mod change_key;
 mod damage_collision_id;
 #[cfg(feature = "debug")]
