@@ -59,7 +59,7 @@ where
             if let Some(knockback_time) = hit.knockback {
                 if let Ok(entry) = knockback.entry(e) {
                     let knockback = entry.or_insert(Knockback::new());
-                    log::info!(
+                    log::debug!(
                         "apply knockback = {} secs => {} F",
                         knockback.knockback_time(),
                         knockback_time
