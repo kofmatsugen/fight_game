@@ -89,7 +89,7 @@ impl<'s> TranslateAnimation<'s> for FightTranslation {
             } else {
                 on_finish_animation(pack_anim_key, user, active, skill_set)
             };
-            log::debug!("=> {:?}", next);
+            log::debug!("change key {:?}", next);
             next
         }
     }
@@ -122,15 +122,12 @@ fn on_during_animation(
 // アニメーション終了時遷移判定
 fn on_finish_animation(
     (&current_pack, _current_anim): (&FightPackKey, &FightAnimationKey),
-    user: Option<&FightUserData>,
+    _user: Option<&FightUserData>,
     active: &ActiveCommand,
     skill_set: &SkillSet,
 ) -> Option<(FightPackKey, FightAnimationKey, usize)> {
     // とりあえずenum値的に最大値を優先する
-    let command = active
-        .active_commands()
-        .filter(|command| user.is_some() && user.unwrap().cancel.is_cancelable(command))
-        .max();
+    let command = active.active_commands().max();
     let skill = command
         .and_then(|command| skill_set.command_skill(command))
         .unwrap_or(skill_set.neutral_skill());
